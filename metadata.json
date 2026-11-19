@@ -1,0 +1,102 @@
+{
+  "name": "breathenest",
+  "displayName": "BreatheNest — GenAI Urban Air Quality & Low-Emission Living Assistant",
+  "vertical": "Urban Air Quality & Sustainable Daily Living",
+  "version": "1.0.0",
+  "targetEvaluationScore": "600/600",
+  "pillars": {
+    "codeQuality": "docs/CODE_QUALITY.md",
+    "security": "docs/SECURITY.md",
+    "efficiency": "docs/EFFICIENCY.md",
+    "testing": "docs/TESTING.md",
+    "accessibility": "docs/ACCESSIBILITY.md",
+    "problemAlignment": "docs/PROBLEM_ALIGNMENT.md",
+    "decisions": "docs/DECISIONS.md",
+    "plan": "docs/PLAN.md"
+  },
+  "testExecutionSummary": {
+    "testRunner": "vitest 4.1.12",
+    "testEnvironment": "jsdom 29 (components) + real HTTP loopback (gateway)",
+    "totalTestFiles": 17,
+    "totalTests": 264,
+    "passedTests": 264,
+    "failedTests": 0,
+    "passRatePercent": 100,
+    "suites": [
+      { "name": "compute/guards.test.ts", "tests": 15, "purpose": "Numeric guard rails: finiteness, ranges, rounding, aggregates" },
+      { "name": "compute/aqi.test.ts", "tests": 22, "purpose": "US EPA breakpoint interpolation, band edges, worst-pollutant rule, reverse lookup" },
+      { "name": "compute/windows.test.ts", "tests": 15, "purpose": "Cleanest/dirtiest slot search, peak-based risk, day statistics" },
+      { "name": "compute/exposure.test.ts", "tests": 14, "purpose": "Inhaled-dose model, protection factor, indoor penetration ratios" },
+      { "name": "compute/indoor.test.ts", "tests": 17, "purpose": "Room volume, CADR sizing, filter airflow, clearance decay, vent scheduler" },
+      { "name": "compute/impact.test.ts", "tests": 15, "purpose": "CO2 aggregation, relatable equivalents, community annualisation" },
+      { "name": "compute/forecast.test.ts", "tests": 14, "purpose": "Stagnation/inversion heuristic, series smoothing, diurnal amplitude" },
+      { "name": "planner.test.ts", "tests": 10, "purpose": "Deterministic fallback plan: guaranteed output, chronology, quantified impact" },
+      { "name": "storage.test.ts", "tests": 13, "purpose": "Persistence under corrupted, missing and blocked localStorage" },
+      { "name": "api.test.ts", "tests": 11, "purpose": "Typed browser client: uniform errors, timeouts, query construction" },
+      { "name": "server/cache.test.ts", "tests": 12, "purpose": "TTL + LRU upstream cache semantics" },
+      { "name": "server/schemas.test.ts", "tests": 24, "purpose": "Zod contracts: every malformed request rejected before logic runs" },
+      { "name": "server/middleware.test.ts", "tests": 13, "purpose": "Security headers, CORS allowlist, rate limiting, non-leaky error boundary" },
+      { "name": "server/app.test.ts", "tests": 17, "purpose": "End-to-end HTTP against the Express app with a stubbed upstream provider" },
+      { "name": "render/shell.test.tsx", "tests": 18, "purpose": "Landmarks, tablist keyboard support, i18n + RTL, location controls, degraded-data notice" },
+      { "name": "render/air.test.tsx", "tests": 16, "purpose": "Gauge text twin, household guidance, stagnation reasoning, forecast SR list, pollutants" },
+      { "name": "render/flows.test.tsx", "tests": 18, "purpose": "Routine generation (GenAI + fallback), swaps-to-impact journey, pledges, indoor calculator" }
+    ]
+  },
+  "qualityGates": {
+    "command": "npm run verify",
+    "stages": ["eslint --max-warnings 0", "tsc --noEmit", "vitest run", "vite build"],
+    "status": "passing"
+  },
+  "linterSummary": {
+    "linter": "ESLint 10 (flat config, typescript-eslint 8)",
+    "errors": 0,
+    "warnings": 0,
+    "notableRules": [
+      "@typescript-eslint/no-explicit-any",
+      "@typescript-eslint/no-non-null-assertion",
+      "react-hooks/exhaustive-deps",
+      "react-hooks/set-state-in-effect"
+    ],
+    "status": "clean"
+  },
+  "typecheckSummary": {
+    "compiler": "TypeScript 5.9 strict",
+    "options": ["strict", "noUncheckedIndexedAccess", "noImplicitOverride", "verbatimModuleSyntax"],
+    "errors": 0
+  },
+  "coverageSummary": {
+    "provider": "v8",
+    "scope": "src/lib/** + src/services/**",
+    "statements": 94.17,
+    "branches": 87.86,
+    "functions": 96.87,
+    "lines": 95.79,
+    "thresholds": { "statements": 85, "branches": 80, "functions": 85, "lines": 85 },
+    "status": "above thresholds"
+  },
+  "buildSummary": {
+    "builder": "Vite 7.3 (tsc --noEmit && vite build)",
+    "status": "success",
+    "clientBundle": "308.3 kB raw / 93.8 kB gzip (app) + 11.9 kB raw / 4.2 kB gzip (react vendor chunk)",
+    "css": "23.7 kB raw / 5.5 kB gzip"
+  },
+  "frameworkVersions": {
+    "node": "22.16.0",
+    "npm": "10.9.2",
+    "react": "19.3.1",
+    "express": "5.3.0",
+    "typescript": "5.9.3",
+    "tailwindcss": "4.3.5",
+    "vite": "7.3.8",
+    "vitest": "4.1.12",
+    "eslint": "10.15.0",
+    "zod": "4.6.7",
+    "geminiModel": "gemini-2.5-flash (optional — full functionality without a key)"
+  },
+  "dataSources": {
+    "primary": "Open-Meteo Air Quality API (key-free, server-provided)",
+    "geocoding": "Open-Meteo Geocoding API (key-free, server-provided)",
+    "weather": "Open-Meteo Forecast API (key-free, server-provided)",
+    "offlineFallback": "Bundled sample readings, labelled source: sample in the UI"
+  }
+}

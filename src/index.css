@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* ============================================================
+   BreatheNest design tokens
+   Tailwind v4 `@theme` generates the utilities used throughout
+   (bg-ink, text-chalk, border-edge …). Colour is never the only
+   signal: every AQI value is paired with a written label.
+   ============================================================ */
+
+@theme {
+  --color-ink: #05130f;
+  --color-panel: #0a1e19;
+  --color-raised: #102923;
+  --color-edge: #1d4038;
+  --color-mint: #34d399;
+  --color-aqua: #22d3ee;
+  --color-chalk: #f0fdfa;
+  --color-fog: #8fb3ab;
+  --color-warn: #fbbf24;
+  --color-alert: #fb7185;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", "Noto Sans Devanagari", "Noto Sans Arabic", Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-ink);
+    color: var(--color-chalk);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* WCAG 2.4.7 Focus Visible — always shown for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-mint);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Respect the OS "reduce motion" preference (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Minimum target size for interactive controls (WCAG 2.5.8). */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+}
+
+@layer components {
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 0.75rem 1.25rem;
+    background: var(--color-mint);
+    color: #04120e;
+    font-weight: 700;
+    border-radius: 0 0 0.5rem 0;
+  }
+
+  .skip-link:focus {
+    left: 0;
+  }
+
+  /* Soft pulsing ring used behind the live AQI dial. */
+  @keyframes bn-pulse {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.04);
+    }
+  }
+
+  .bn-pulse {
+    animation: bn-pulse 3.2s ease-in-out infinite;
+  }
+
+  @keyframes bn-sweep {
+    from {
+      stroke-dashoffset: 320;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .bn-sweep {
+    animation: bn-sweep 900ms ease-out forwards;
+  }
+}
