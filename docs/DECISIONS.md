@@ -33,7 +33,7 @@ confidently invent numbers.
 2. Compute everything locally, use the model only to *rephrase* (slower to build, correct).
 3. Compute and let the model free-write alongside (two sources of truth, contradictory UI).
 
-**Decision.** Option 2, structurally: `src/lib/planner.ts` is the source of truth; Gemini rewrites
+**Decision.** Option 2, structurally: `src/lib/planner.ts` is the source of truth; the model rewrites
 the same plan's prose; its output is re-validated field by field and reconciled against the local
 plan (`server/ai.ts`). The badge tells the user which engine answered.
 
@@ -102,12 +102,12 @@ leaks internals or hides bugs.
 
 ## D-007 · Rate limit the model endpoints, not the data endpoints
 
-**Situation.** `/api/plan` costs Gemini quota and CPU; `/api/air-quality` is a cached proxy.
+**Situation.** `/api/plan` costs model quota and CPU; `/api/air-quality` is a cached proxy.
 
 **Decision.** 20 req/min/IP on `/api/plan` and `/api/advisory` only, JSON 429. The air-quality
 route relies on the TTL cache instead — throttling it would punish a legitimate refresh.
 
-**Consequence.** An abuser can spend *their own* refresh budget but cannot drain the Gemini key.
+**Consequence.** An abuser can spend *their own* refresh budget but cannot drain the model key.
 The limiter is disabled only under `NODE_ENV=test` (shared counters cause flaky suites) and its
 real behaviour is unit-tested separately.
 
@@ -153,3 +153,20 @@ unavailable").
 **Consequence.** The product occasionally tells the user "this one isn't a win for you". That is
 the entire credibility argument for the impact ledger, and it is why the numbers elsewhere are
 worth reading.
+
+## D-011 · Two model vendors, one contract
+
+**Situation.** Gemini was the first integration; a second vendor (xAI Grok) became available and a
+single-vendor dependency on a keyed API is a single point of failure for the GenAI feature.
+
+**Options.** (a) swap the vendor outright · (b) support both behind one interface · (c) let users
+configure a generic OpenAI-compatible endpoint.
+
+**Decision.** Option 2 — `resolveEngine()` in `server/ai.ts` picks `gemini`, `grok` or `local` from
+`GENAI_PROVIDER` (`auto` = Gemini if keyed, else Grok if keyed, else local). Both backends return
+plain text that flows through the *same* `parseJson → sanitizeBlocks → reconcile` gate; only the
+transport differs (official SDK vs one `fetch` to the OpenAI-compatible endpoint).
+
+**Consequence.** The security story is unchanged — the provider changes *who writes*, never *what
+is accepted* — and the app still runs with zero keys. Cost: two things to keep in sync (timeout
+discipline, prompt text), which is why they share `complete()` and the same prompt builders.

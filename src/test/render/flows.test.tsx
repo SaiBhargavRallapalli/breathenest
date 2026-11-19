@@ -94,7 +94,23 @@ describe('routine tab — deterministic fallback', () => {
     await user.click(screen.getByRole('tab', { name: /my day/i }));
     expect(await screen.findByText(/how this plan was built/i)).toBeInTheDocument();
     expect(screen.getByText(/deterministic planner/i)).toBeInTheDocument();
-    expect(screen.getByText(/gemini generator/i)).toBeInTheDocument();
+    expect(screen.getByText(/genai generator \(gemini or grok\)/i)).toBeInTheDocument();
+  });
+
+  it('names Grok when Grok produced the plan', async () => {
+    const user = userEvent.setup();
+    const body = geminiPlanBody();
+    const grokBody = {
+      ...body,
+      plan: { ...body.plan, generator: 'grok' },
+      source: 'grok',
+    };
+    stubFetch({ ...ROUTES, '/api/plan': () => grokBody });
+    render(<App />);
+
+    await user.click(screen.getByRole('tab', { name: /my day/i }));
+    expect(await screen.findByText('GenAI plan (Grok)')).toBeInTheDocument();
+    expect(screen.queryByText('Local planner')).not.toBeInTheDocument();
   });
 });
 

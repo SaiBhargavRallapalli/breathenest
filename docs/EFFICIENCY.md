@@ -24,7 +24,8 @@ test suite finishes fast enough that nobody is tempted to skip it.
 Things that are *not* in the bundle: no charting library (the 24-hour strip is 40 lines of divs),
 no date library (hours are integers 0–23), no i18n framework (a flat `Record` per language), no
 CSS-in-Runtime (Tailwind compiles away). The one runtime dependency beyond React is the Gemini SDK,
-and it is **server-only** — `server/ai.ts` is never reachable from `src/`.
+and it is **server-only** — `server/ai.ts` is never reachable from `src/`. The Grok path adds no
+dependency at all: it is one `fetch` to the OpenAI-compatible endpoint.
 
 The vendor split exists so a React patch release does not invalidate the app chunk in a return
 visitor's cache (`manualChunks: { react: ['react', 'react-dom'] }` in `vite.config.ts`).
@@ -55,7 +56,7 @@ responses are shared across users.
 | Request coalescing key (`hashPayload`) | canonical query hash | Identical upstream queries map to one cache entry regardless of parameter order. |
 | Upstream timeouts | `AbortSignal.timeout(REQUEST_TIMEOUT_MS)` on every Open-Meteo call | A hung provider cannot hold sockets or event-loop promises open. |
 | Browser timeouts | `AbortSignal.timeout(TIMEOUT_MS)` in `services/api.ts` | The UI fails to its labelled sample data instead of spinning forever. |
-| Rate limiting | 20 req/min/IP on `/api/plan` and `/api/advisory` | Caps Gemini spend and prevents compute exhaustion (see `docs/SECURITY.md` §4). |
+| Rate limiting | 20 req/min/IP on `/api/plan` and `/api/advisory` | Caps model spend and prevents compute exhaustion (see `docs/SECURITY.md` §4). |
 | Body cap | `express.json({ limit: '16kb' })` | Memory bounded per request. |
 | Key-free upstreams | Open-Meteo (air quality, geocoding, weather) | No key provisioning, no quota dashboard, no billing path — the whole app runs on public infrastructure. |
 
@@ -109,6 +110,6 @@ an assertion instead of a timer.
   readability win outweighs a constant-factor loss nobody can measure.
 - **Sample fallback bundled into the app** (a few kB) rather than fetched — it is what makes the
   app honest and useful offline, and it is labelled `source: sample` in a live region.
-- **`gemini-2.5-flash` by default** — chosen for latency on a per-request interactive path; a
-  slower model would be justified only if quality demanded it, and the local planner already
-  guarantees a good baseline answer.
+- **`gemini-2.5-flash` / `grok-4.7` by default, `reasoning_effort: low` on Grok** — chosen for
+  latency on a per-request interactive path; a slower model would be justified only if quality
+  demanded it, and the local planner already guarantees a good baseline answer.

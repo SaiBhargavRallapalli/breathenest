@@ -10,7 +10,8 @@ Every claim below is executable: the referenced test file fails the build if the
 ## 1. Threat model in one paragraph
 
 BreatheNest's gateway accepts HTTP from browsers it does not control, forwards part of that traffic
-to Open-Meteo and to Google Gemini, and puts model output back on a screen. So the four things that
+to Open-Meteo and to a model provider (Google Gemini or xAI Grok), and puts model output back on a
+screen. So the four things that
 must hold are: (1) no secret ever reaches the browser, (2) nothing an attacker sends reaches
 business logic unvalidated, (3) nothing a model returns reaches the DOM un-sanitised, and (4) no
 error, header or timing tells an attacker anything useful about the internals. Each is a section
@@ -20,7 +21,7 @@ below with its proof.
 
 | Control | Where | Evidence |
 | --- | --- | --- |
-| `GEMINI_API_KEY` read only in `server/config.ts`, never prefixed `VITE_` | `server/config.ts:60` | No `import.meta.env` reference to the key exists anywhere (grep `GEMINI_API_KEY` → server files only) |
+| `GEMINI_API_KEY` / `GROK_API_KEY` read only in `server/config.ts`, never prefixed `VITE_` | `server/config.ts` | No `import.meta.env` reference to either key exists anywhere (grep for them → server files only) |
 | `.env` in `.gitignore`; `.env.example` holds empty placeholders | `.gitignore`, `.env.example` | Repository contains no `.env` |
 | Key absent ⇒ **entire feature still works** | `server/ai.ts` → `localPlan()` | `server/app.test.ts` boots the app with `GEMINI_API_KEY: ''` and every plan/advisory test passes |
 | Config values range-checked at load, typo fails loudly | `config.ts` `readInt()` throws `RangeError` | Bad `PORT`/`UPSTREAM_CACHE_TTL_SECONDS` cannot silently become a broken runtime |
@@ -63,7 +64,8 @@ Additional server-side limits:
 
 ## 4. The model is an untrusted writer
 
-Gemini's output is treated exactly like user input. `server/ai.ts` applies three independent gates:
+Model output — Gemini's *or* Grok's — is treated exactly like user input. `server/ai.ts` applies
+three independent gates:
 
 1. **`parseJson`** — strips a code fence, `JSON.parse` in a try/catch; anything non-object ⇒ `null`.
 2. **`sanitizeBlocks`** — non-objects dropped; `title`/`time` required; every string **truncated**
@@ -91,7 +93,10 @@ boundary, the prompt wording is defence in depth. `MAX_BLOCKS`, the string caps 
 `reconcile` floor together mean a hijacked model cannot spam, flood or blank the UI.
 
 **Model endpoints are rate-limited**: 20 requests/minute/IP on `/api/plan` and `/api/advisory`
-(`middleware.ts:66`) with a JSON 429 — protecting both the Gemini quota and the server's compute.
+(`middleware.ts:66`) with a JSON 429 — protecting both the vendor quota and the server's compute.
+Both providers are reached **server-side only** over HTTPS with a bearer header
+(`Authorization: Bearer …` for Grok, the SDK's `x-goog-api-key` for Gemini); neither key is ever
+present in the browser bundle.
 (Disabled only under `NODE_ENV=test` so suites do not throttle each other; the limiter's real
 behaviour is unit-tested separately in `middleware.test.ts`.)
 
@@ -184,6 +189,7 @@ Plus an end-to-end check that the response carries `x-powered-by: null` and a st
 | Prompt injection through household fields | No LLM input boundary is perfect | Output is schema-validated, length-capped and reconciled against the deterministic plan; blast radius is prose only |
 | `style-src 'unsafe-inline'` | Gauge/meter geometry is render-computed | `script-src` stays `'self'` — the XSS-relevant directive |
 | Rate limiter off under `NODE_ENV=test` | Shared counters would make suites flaky | Limiter behaviour unit-tested separately; never active in any non-test environment |
+| Two model vendors, two prompt-injection surfaces | A second backend is a second way in | Identical `sanitizeBlocks`/`reconcile` gate for both — the provider only changes *who writes*, never *what is accepted* |
 | No request authentication | The app is a public read-only assistant with no user data server-side | Nothing to authenticate; the only server-side state is a TTL cache of public data |
 | Open-Meteo is a third party | Key-free public data is the project's accessibility bet | Timeouts, TTL cache, and a labelled bundled-sample fallback when upstream fails |
 

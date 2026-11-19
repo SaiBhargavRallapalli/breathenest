@@ -29,7 +29,7 @@ src/
 server/
 ├── schemas.ts    every request shape, Zod-validated
 ├── airQuality.ts upstream providers + normalisation
-├── ai.ts         Gemini calls + output re-validation, with a local fallback
+├── ai.ts         Gemini/Grok calls + output re-validation, with a local fallback
 ├── cache.ts      TTL + LRU
 ├── middleware.ts security headers, CORS, rate limit, error boundary
 └── app.ts        route wiring only
@@ -99,7 +99,7 @@ this app is written:
 | `services/api.ts` | Every failure — HTTP, transport, empty body — collapses to one `ApiError` with a `status` (0 for transport) and a human message. UI code has exactly one error path. |
 | `services/storage.ts` | `loadJson` never throws: malformed JSON, a missing key, a denied `localStorage` (private mode) or a quota error all return the caller's fallback. |
 | `server/middleware.ts` `safeErrorHandler` | 4xx messages are echoed (the client can correct input); 5xx messages are replaced with `Internal Server Error` and the real error is logged server-side only. |
-| `server/ai.ts` | Gemini output is re-validated; on any failure the deterministic local plan is returned. There is no user-visible failure mode. |
+| `server/ai.ts` | Model output (Gemini or Grok) is re-validated; on any failure the deterministic local plan is returned. There is no user-visible failure mode. |
 
 ## 7. Honesty in the numbers
 

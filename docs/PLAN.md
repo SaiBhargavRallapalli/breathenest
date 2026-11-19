@@ -42,7 +42,7 @@ Pure, dependency-free modules built first and tested first: `guards` → `aqi` (
 ### Phase 2 — Boundaries (`src/services/`, `server/`)
 Typed `fetch` client with uniform `ApiError` + timeouts; defensive `storage`; Express 5 gateway
 with Zod schemas, TTL+LRU cache, helmet/CORS/rate-limit/error-boundary, Open-Meteo proxy, and the
-Gemini layer with re-validation + local fallback.
+Gemini/Grok layer with re-validation + local fallback.
 **Gate:** 66 server tests + 11 api + 13 storage green, including the raw-`http.request` CORS proof
 and the `GEMINI_API_KEY: ''` boot.
 

@@ -121,10 +121,12 @@ export function RoutinePanel() {
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
           <span
             className={`rounded-full px-2.5 py-1 font-semibold ${
-              plan.generator === 'gemini' ? 'bg-aqua/15 text-aqua' : 'bg-mint/15 text-mint'
+              plan.generator === 'local' ? 'bg-mint/15 text-mint' : 'bg-aqua/15 text-aqua'
             }`}
           >
-            {plan.generator === 'gemini' ? 'GenAI plan (Gemini)' : 'Local planner'}
+            {plan.generator === 'local'
+              ? 'Local planner'
+              : `GenAI plan (${plan.generator === 'grok' ? 'Grok' : 'Gemini'})`}
           </span>
           {degraded && (
             <span className="rounded-full bg-warn/15 px-2.5 py-1 font-semibold text-warn">
@@ -190,8 +192,9 @@ export function RoutinePanel() {
             configuration.
           </li>
           <li className="rounded-xl border border-edge bg-raised p-3">
-            <strong className="text-chalk">Gemini generator</strong> — rewrites the same plan with
-            household-specific language, then has every field re-validated before it is shown.
+            <strong className="text-chalk">GenAI generator (Gemini or Grok)</strong> — rewrites the
+            same plan with household-specific language, then has every field re-validated before it
+            is shown.
           </li>
         </ul>
         <div className="mt-3">

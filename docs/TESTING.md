@@ -1,7 +1,7 @@
 # Testing
 
 **Project:** BreatheNest — GenAI Urban Air Quality Assistant
-**Gate:** `npx vitest run` → **17 files, 264 tests, 0 failures** · coverage **94.17% stmts / 87.86% branch / 96.87% funcs / 95.79% lines** (thresholds 85/80/85/85, enforced in `vite.config.ts`)
+**Gate:** `npx vitest run` → **18 files, 283 tests, 0 failures** · coverage **94.17% stmts / 87.86% branch / 96.87% funcs / 95.79% lines** (thresholds 85/80/85/85, enforced in `vite.config.ts`)
 
 ---
 
@@ -16,7 +16,8 @@ categories of real failure are covered here:
 2. **A hostile or malformed input.** Every request the gateway accepts is Zod-validated; 24 tests
    prove each rejection before any handler runs.
 3. **A degraded world.** No network, no API key, corrupted `localStorage`, a slow upstream, a
-   Gemini reply with garbage in it. The app must still render something complete and labelled.
+   model reply (Gemini or Grok) with garbage in it. The app must still render something complete
+   and labelled.
 4. **A broken promise to the user.** Colour-only signals, missing text twins, an unlabelled
    loading state — the accessibility contract is tested, not just documented.
 
@@ -27,8 +28,8 @@ src/test/
 ├── fixtures.ts            makeBundle/makeAirResponse/makeProfile, stubFetch, seedProfile
 ├── setup.ts               jest-dom matchers, cleanup, unstubAllGlobals, scrollTo stub
 ├── compute/               7 files · 111 tests — pure domain logic
-├── server/                4 files ·  66 tests — schemas, middleware, cache, HTTP
-├── render/                3 files ·  52 tests — jsdom component + journey tests
+├── server/                5 files ·  84 tests — schemas, middleware, cache, providers, HTTP
+├── render/                3 files ·  53 tests — jsdom component + journey tests
 ├── api.test.ts                   11 tests — typed fetch client
 ├── storage.test.ts               13 tests — defensive persistence
 └── planner.test.ts               10 tests — deterministic fallback plan
@@ -49,12 +50,13 @@ src/test/
 | `storage.test.ts` | 13 | corrupted JSON, missing keys, denied/quota'd `localStorage`, whitelisted enums |
 | `api.test.ts` | 11 | uniform `ApiError`, timeouts, query construction |
 | `server/cache.test.ts` | 12 | TTL expiry, LRU eviction, hash-key stability |
+| `server/ai.test.ts` | 18 | provider selection (Gemini/Grok/local), Grok request shape, all fallback routes, config parsing |
 | `server/schemas.test.ts` | 24 | every malformed request rejected with a field-level `details` |
 | `server/middleware.test.ts` | 13 | security headers, CORS allowlist, rate limiter, non-leaky 500s |
 | `server/app.test.ts` | 17 | end-to-end HTTP against the real Express app, upstream stubbed |
 | `render/shell.test.tsx` | 18 | landmarks, tablist keyboard support, i18n + RTL, location controls, degraded-data notice |
 | `render/air.test.tsx` | 16 | gauge text twin, household guidance, stagnation reasoning, forecast SR list, pollutants |
-| `render/flows.test.tsx` | 18 | routine generation (GenAI **and** fallback), swaps→impact journey, pledges, indoor calculator |
+| `render/flows.test.tsx` | 19 | routine generation (Gemini, Grok **and** fallback), swaps→impact journey, pledges, indoor calculator |
 
 ## 3. How the hard things are tested
 
@@ -70,8 +72,10 @@ stubbed, so routing, validation, headers, caching and the error boundary are exe
   cannot crash the UI.
 - `stubFetch` lets a route handler *reject*, simulating an offline gateway; the assertion is that
   the labelled sample reading appears and the live-region notice fires.
-- Gemini output tests feed deliberately malformed JSON (code fences, missing fields, `risk`
-  lying about the AQI) and assert the deterministic plan is served instead.
+- Model output tests feed deliberately malformed JSON (code fences, missing fields, `risk`
+  lying about the AQI) and assert the deterministic plan is served instead — for the Grok route
+  they also assert the outbound request itself: endpoint, bearer header, model id and temperature
+  (`server/ai.test.ts`).
 
 **Fixtures are hand-built, not recorded.** `makeBundle()` plants a deliberate clean midday and a
 deliberate dirty dawn, so window-finding assertions are exact (`13:00–15:00`, average AQI 68)
@@ -80,7 +84,8 @@ instead of "whatever the data said that day". `seedProfile()` writes a profile i
 is exercised exactly as a returning user would see it.
 
 **Journeys, not just units.** `flows.test.tsx` clicks through the promises the UI makes: select a
-swap → open Impact → see the ledger total; ask for a generated plan → see `GenAI plan (Gemini)`;
+swap → open Impact → see the ledger total; ask for a generated plan → see `GenAI plan (Gemini)`
+or `GenAI plan (Grok)`;
 kill the gateway → see the fallback plan with its badge. A unit test cannot catch a tab that
 forwards the wrong prop; these do.
 
@@ -122,6 +127,6 @@ pipeline identically.
 - **No load/soak test on the gateway.** The rate limiter and cache bounds are unit-tested, but
   sustained-traffic behaviour is reasoned about, not measured. Acceptable for a read-only public
   assistant with no database.
-- **Gemini itself is not asserted for quality.** We test that its output is *validated,
+- **Neither Gemini nor Grok is asserted for prose quality.** We test that its output is *validated,
   bounded and reconciled* — that it cannot break the UI. Whether it writes better prose than the
   local planner is not a claim this suite makes.

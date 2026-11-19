@@ -1,11 +1,11 @@
 // ============================================================
 // server/ai.ts
-// Generative layer. Gemini produces the plan, but its output is
-// treated as untrusted: every field is re-checked against the
-// schema we expect and anything missing is filled in from the
-// deterministic planner. If the key is absent, quota is exhausted or
-// the response is malformed, we silently serve the local plan so the
-// feature never goes down.
+// Generative layer. Gemini or Grok produces the plan, but its
+// output is treated as untrusted: every field is re-checked against
+// the schema we expect and anything missing is filled in from the
+// deterministic planner. If no key is configured, the upstream fails,
+// quota is exhausted or the response is malformed, we silently serve
+// the local plan so the feature never goes down.
 // ============================================================
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -17,6 +17,113 @@ import { hashPayload, type TtlCache } from './cache';
 import type { AdvisoryRequest, PlanRequest } from './schemas';
 
 const MAX_BLOCKS = 8;
+
+/** A configured generative backend. `local` is the always-available one. */
+export type GenAiEngine = 'gemini' | 'grok';
+export type GenAiSource = GenAiEngine | 'local';
+
+/** Latency budget for one model call — the interactive path must not hang. */
+const MODEL_TIMEOUT_MS = 30_000;
+
+/**
+ * Picks the backend to call. `auto` prefers Gemini (the original
+ * integration) and falls back to Grok; an explicit provider with no key
+ * resolves to null rather than erroring, so the local planner wins.
+ */
+export function resolveEngine(config: ServerConfig): GenAiEngine | null {
+  if (config.genaiProvider === 'local') return null;
+  if (config.genaiProvider === 'gemini') return config.geminiApiKey ? 'gemini' : null;
+  if (config.genaiProvider === 'grok') return config.grokApiKey ? 'grok' : null;
+  if (config.geminiApiKey) return 'gemini';
+  if (config.grokApiKey) return 'grok';
+  return null;
+}
+
+interface CompletionOptions {
+  readonly temperature: number;
+  readonly maxTokens: number;
+  /** Ask the backend for JSON only (Gemini's `responseMimeType`). */
+  readonly json?: boolean;
+}
+
+/** Google Gemini via the official SDK. */
+async function completeGemini(
+  prompt: string,
+  config: ServerConfig,
+  options: CompletionOptions,
+): Promise<string> {
+  const ai = new GoogleGenerativeAI(config.geminiApiKey ?? '');
+  const model = ai.getGenerativeModel({
+    model: config.geminiModel,
+    generationConfig: {
+      temperature: options.temperature,
+      maxOutputTokens: options.maxTokens,
+      ...(options.json ? { responseMimeType: 'application/json' } : {}),
+    },
+  });
+  const response = await model.generateContent(prompt);
+  return response.response.text();
+}
+
+/**
+ * xAI Grok over the OpenAI-compatible chat-completions endpoint.
+ * Deliberately plain `fetch` — no extra dependency, same timeout and
+ * error discipline as the rest of the gateway.
+ */
+async function completeGrok(
+  prompt: string,
+  config: ServerConfig,
+  options: CompletionOptions,
+): Promise<string> {
+  const response = await fetch(`${config.grokBaseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${config.grokApiKey ?? ''}`,
+    },
+    body: JSON.stringify({
+      model: config.grokModel,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are BreatheNest, an urban air-quality assistant. Follow the user instructions exactly. Return plain text only: no markdown, no HTML, no preamble.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: options.temperature,
+      max_completion_tokens: options.maxTokens,
+      // Interactive path: latency matters more than reasoning depth.
+      reasoning_effort: 'low',
+    }),
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`xAI request failed with HTTP ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    readonly choices?: readonly { readonly message?: { readonly content?: unknown } }[];
+  };
+  const text = payload.choices?.[0]?.message?.content;
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('xAI response contained no message content');
+  }
+  return text;
+}
+
+/** Routes one completion to the configured backend. */
+async function complete(
+  engine: GenAiEngine,
+  prompt: string,
+  config: ServerConfig,
+  options: CompletionOptions,
+): Promise<string> {
+  return engine === 'grok'
+    ? completeGrok(prompt, config, options)
+    : completeGemini(prompt, config, options);
+}
 
 /** Extracts a JSON object from a model reply, tolerating code fences. */
 function parseJson(text: unknown): Record<string, unknown> | null {
@@ -58,7 +165,11 @@ function sanitizeBlocks(raw: unknown): RoutineBlock[] {
 }
 
 /** Merges a model response with the local plan, keeping it safe to render. */
-function reconcile(raw: Record<string, unknown> | null, fallback: DailyPlan): DailyPlan {
+function reconcile(
+  raw: Record<string, unknown> | null,
+  fallback: DailyPlan,
+  engine: GenAiEngine,
+): DailyPlan {
   const blocks = sanitizeBlocks(raw?.blocks);
   if (blocks.length < 3) return fallback;
 
@@ -69,7 +180,7 @@ function reconcile(raw: Record<string, unknown> | null, fallback: DailyPlan): Da
   const hours = blocks.map((block) => ({ hour: Number.parseInt(block.time.slice(0, 2), 10) || 0, aqi: block.windowAqi }));
   const window = findBestWindows(hours, { limit: 1, maxPeakAqi: 150 })[0] ?? fallback.bestOutdoorWindow;
 
-  return { ...fallback, blocks, summary, bestOutdoorWindow: window, generator: 'gemini' };
+  return { ...fallback, blocks, summary, bestOutdoorWindow: window, generator: engine };
 }
 
 /** Builds the prompt, keeping user-supplied text clearly delimited. */
@@ -137,36 +248,31 @@ export function localPlan(request: PlanRequest): DailyPlan {
   });
 }
 
-/** Generates a plan, preferring Gemini and always able to fall back. */
+/** Generates a plan, preferring a configured engine and always able to fall back. */
 export async function generatePlan(
   request: PlanRequest,
   config: ServerConfig,
   cache: TtlCache<DailyPlan>,
-): Promise<{ plan: DailyPlan; source: 'gemini' | 'local' }> {
+): Promise<{ plan: DailyPlan; source: GenAiSource }> {
   const fallback = localPlan(request);
-  if (!config.geminiApiKey) return { plan: fallback, source: 'local' };
+  const engine = resolveEngine(config);
+  if (!engine) return { plan: fallback, source: 'local' };
 
-  const key = hashPayload({ kind: 'plan', body: request });
+  const key = hashPayload({ kind: 'plan', engine, body: request });
   const cached = cache.get(key);
-  if (cached) return { plan: cached, source: cached.generator === 'gemini' ? 'gemini' : 'local' };
+  if (cached) return { plan: cached, source: cached.generator === 'local' ? 'local' : cached.generator };
 
   try {
-    const ai = new GoogleGenerativeAI(config.geminiApiKey);
-    const model = ai.getGenerativeModel({
-      model: config.geminiModel,
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: 4096,
-        responseMimeType: 'application/json',
-      },
+    const text = await complete(engine, planPrompt(request), config, {
+      temperature: 0.4,
+      maxTokens: 4096,
+      json: engine === 'gemini',
     });
-
-    const response = await model.generateContent(planPrompt(request));
-    const plan = reconcile(parseJson(response.response.text()), fallback);
+    const plan = reconcile(parseJson(text), fallback, engine);
     cache.set(key, plan, config.upstreamTtlMs);
-    return { plan, source: plan.generator === 'gemini' ? 'gemini' : 'local' };
+    return { plan, source: plan.generator };
   } catch (error) {
-    console.warn(`[breathenest] Gemini plan failed, using local planner: ${String(error)}`);
+    console.warn(`[breathenest] ${engine} plan failed, using local planner: ${String(error)}`);
     return { plan: fallback, source: 'local' };
   }
 }
@@ -176,29 +282,27 @@ export async function generateAdvisory(
   request: AdvisoryRequest,
   config: ServerConfig,
   cache: TtlCache<string>,
-): Promise<{ advisory: string; source: 'gemini' | 'local' }> {
+): Promise<{ advisory: string; source: GenAiSource }> {
   const fallback = `Air quality in ${request.locationName} is currently AQI ${request.aqi}. Keep windows closed during the morning and evening peaks, run filtration indoors, and move outdoor activity to the middle of the day.`;
 
-  if (!config.geminiApiKey) return { advisory: fallback, source: 'local' };
+  const engine = resolveEngine(config);
+  if (!engine) return { advisory: fallback, source: 'local' };
 
-  const key = hashPayload({ kind: 'advisory', body: request });
+  const key = hashPayload({ kind: 'advisory', engine, body: request });
   const cached = cache.get(key);
-  if (cached) return { advisory: cached, source: 'gemini' };
+  if (cached) return { advisory: cached, source: engine };
 
   try {
-    const ai = new GoogleGenerativeAI(config.geminiApiKey);
-    const model = ai.getGenerativeModel({
-      model: config.geminiModel,
-      generationConfig: { temperature: 0.3, maxOutputTokens: 600 },
-    });
-    const response = await model.generateContent(advisoryPrompt(request));
-    const text = response.response.text().trim();
+    const text = (await complete(engine, advisoryPrompt(request), config, {
+      temperature: 0.3,
+      maxTokens: 600,
+    })).trim();
 
     if (!text || text.length > 1500) return { advisory: fallback, source: 'local' };
     cache.set(key, text, config.upstreamTtlMs);
-    return { advisory: text, source: 'gemini' };
+    return { advisory: text, source: engine };
   } catch (error) {
-    console.warn(`[breathenest] Gemini advisory failed, using fallback: ${String(error)}`);
+    console.warn(`[breathenest] ${engine} advisory failed, using fallback: ${String(error)}`);
     return { advisory: fallback, source: 'local' };
   }
 }

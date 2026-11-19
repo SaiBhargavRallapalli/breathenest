@@ -65,12 +65,14 @@ What the model genuinely adds:
 
 - prose that names *your* household ("Asha and you: AQI 185…"), not generic advice;
 - a multilingual advisory (`/api/advisory`) phrased for the selected language;
+- a choice of backend: the same contract is served by Google Gemini **or** xAI Grok, selected by
+  `GENAI_PROVIDER`, with neither required for the app to work;
 - plan summaries that read like a person wrote them.
 
 What it is deliberately prevented from doing: producing unvalidated fields, unbounded text, wrong
 `risk` labels, or more than `MAX_BLOCKS` items (see `docs/SECURITY.md` §4). The UI states which
-engine answered (`Local planner` vs `GenAI plan (Gemini)`), so the user is never misled about
-provenance.
+engine answered (`Local planner` vs `GenAI plan (Gemini)` vs `GenAI plan (Grok)`), so the user is
+never misled about provenance.
 
 ## 5. What a skeptical reviewer should do
 
