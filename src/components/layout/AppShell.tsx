@@ -80,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           Open-Meteo public API and follow US EPA breakpoints.
         </p>
         <p className="mt-1">
-          Built for the PromptWars × Catalyst challenge. Open source under the MIT licence.
+          Built for Challenge 6. Open source under the MIT licence.
         </p>
       </footer>
     </div>

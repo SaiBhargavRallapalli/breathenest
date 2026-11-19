@@ -1,6 +1,6 @@
 # Problem Alignment
 
-**Project:** BreatheNest — GenAI Urban Air Quality Assistant · Challenge 6, PromptWars × Catalyst
+**Project:** BreatheNest — GenAI Urban Air Quality Assistant · Challenge 6
 **Question this doc answers:** does the software actually do what the challenge asked, and can a
 reviewer verify each claim in under a minute?
 
