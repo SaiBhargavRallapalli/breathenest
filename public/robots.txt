@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# BreatheNest is a static single-page assistant; there is nothing to crawl
+# behind the interface, but the landing page is welcome in search results.

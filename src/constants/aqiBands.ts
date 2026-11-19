@@ -26,7 +26,7 @@ export const AQI_BANDS: readonly AqiBand[] = [
     label: 'Good',
     shortLabel: 'Good',
     max: 50,
-    color: '#16a34a',
+    color: '#22c55e', // AA on its own tint (was #16a34a: 4.2:1)
     tint: 'rgba(22, 163, 74, 0.16)',
     guidance: 'Air is clean. A good day for outdoor activity and for opening the windows.',
     sensitiveGuidance: 'No restrictions — enjoy normal outdoor plans.',
@@ -57,7 +57,7 @@ export const AQI_BANDS: readonly AqiBand[] = [
     label: 'Unhealthy',
     shortLabel: 'Unhealthy',
     max: 200,
-    color: '#ef4444',
+    color: '#f87171', // AA on its own tint (was #ef4444: 4.0:1)
     tint: 'rgba(239, 68, 68, 0.16)',
     guidance: 'Everyone should limit prolonged outdoor exertion and keep windows shut.',
     sensitiveGuidance: 'Sensitive members should stay indoors with filtered air where possible.',
@@ -67,7 +67,7 @@ export const AQI_BANDS: readonly AqiBand[] = [
     label: 'Very unhealthy',
     shortLabel: 'Very unhealthy',
     max: 300,
-    color: '#a855f7',
+    color: '#c084fc', // AA on its own tint (was #a855f7: 3.6:1)
     tint: 'rgba(168, 85, 247, 0.18)',
     guidance: 'Avoid outdoor exercise. Keep outdoor time to essentials only.',
     sensitiveGuidance: 'Sensitive members should remain indoors; consider moving school or care plans inside.',
@@ -77,7 +77,7 @@ export const AQI_BANDS: readonly AqiBand[] = [
     label: 'Hazardous',
     shortLabel: 'Hazardous',
     max: Number.POSITIVE_INFINITY,
-    color: '#be123c',
+    color: '#ff5f7e', // AA on its own tint (was #be123c: 2.5:1)
     tint: 'rgba(190, 18, 60, 0.22)',
     guidance: 'Health emergency: stay indoors, seal gaps and run filtration continuously.',
     sensitiveGuidance:

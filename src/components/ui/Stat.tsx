@@ -21,8 +21,13 @@ export function Stat({ label, value, hint, tone = 'default' }: StatProps) {
   return (
     <div className="min-w-0">
       <dt className="text-xs font-medium uppercase tracking-wider text-fog">{label}</dt>
-      <dd className={`mt-0.5 truncate text-xl font-semibold tabular-nums ${TONE_CLASS[tone]}`}>{value}</dd>
-      {hint && <p className="mt-0.5 text-xs text-fog">{hint}</p>}
+      {/* The hint lives inside the <dd> so the <dl> only ever holds dt/dd pairs. */}
+      <dd className="mt-0.5">
+        <span className={`block truncate text-xl font-semibold tabular-nums ${TONE_CLASS[tone]}`}>
+          {value}
+        </span>
+        {hint && <span className="mt-0.5 block text-xs text-fog">{hint}</span>}
+      </dd>
     </div>
   );
 }
