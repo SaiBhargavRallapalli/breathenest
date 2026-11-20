@@ -1,6 +1,6 @@
 // ============================================================
 // server/ai.ts
-// Generative layer. Gemini or Grok produces the plan, but its
+// Generative layer. Gemini or Groq produces the plan, but its
 // output is treated as untrusted: every field is re-checked against
 // the schema we expect and anything missing is filled in from the
 // deterministic planner. If no key is configured, the upstream fails,
@@ -19,7 +19,7 @@ import type { AdvisoryRequest, PlanRequest } from './schemas';
 const MAX_BLOCKS = 8;
 
 /** A configured generative backend. `local` is the always-available one. */
-export type GenAiEngine = 'gemini' | 'grok';
+export type GenAiEngine = 'gemini' | 'groq';
 export type GenAiSource = GenAiEngine | 'local';
 
 /** Latency budget for one model call — the interactive path must not hang. */
@@ -27,15 +27,15 @@ const MODEL_TIMEOUT_MS = 30_000;
 
 /**
  * Picks the backend to call. `auto` prefers Gemini (the original
- * integration) and falls back to Grok; an explicit provider with no key
+ * integration) and falls back to Groq; an explicit provider with no key
  * resolves to null rather than erroring, so the local planner wins.
  */
 export function resolveEngine(config: ServerConfig): GenAiEngine | null {
   if (config.genaiProvider === 'local') return null;
   if (config.genaiProvider === 'gemini') return config.geminiApiKey ? 'gemini' : null;
-  if (config.genaiProvider === 'grok') return config.grokApiKey ? 'grok' : null;
+  if (config.genaiProvider === 'groq') return config.groqApiKey ? 'groq' : null;
   if (config.geminiApiKey) return 'gemini';
-  if (config.grokApiKey) return 'grok';
+  if (config.groqApiKey) return 'groq';
   return null;
 }
 
@@ -66,23 +66,26 @@ async function completeGemini(
 }
 
 /**
- * xAI Grok over the OpenAI-compatible chat-completions endpoint.
+ * Groq over the OpenAI-compatible chat-completions endpoint.
  * Deliberately plain `fetch` — no extra dependency, same timeout and
  * error discipline as the rest of the gateway.
  */
-async function completeGrok(
+async function completeGroq(
   prompt: string,
   config: ServerConfig,
   options: CompletionOptions,
 ): Promise<string> {
-  const response = await fetch(`${config.grokBaseUrl}/chat/completions`, {
+  const response = await fetch(`${config.groqBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${config.grokApiKey ?? ''}`,
+      authorization: `Bearer ${config.groqApiKey ?? ''}`,
+      // Groq sits behind Cloudflare, which answers error 1010 to clients
+      // with a blank or blacklisted User-Agent. Identify ourselves.
+      'user-agent': 'BreatheNest/1.0',
     },
     body: JSON.stringify({
-      model: config.grokModel,
+      model: config.groqModel,
       messages: [
         {
           role: 'system',
@@ -100,7 +103,7 @@ async function completeGrok(
   });
 
   if (!response.ok) {
-    throw new Error(`xAI request failed with HTTP ${response.status}`);
+    throw new Error(`Groq request failed with HTTP ${response.status}`);
   }
 
   const payload = (await response.json()) as {
@@ -108,7 +111,7 @@ async function completeGrok(
   };
   const text = payload.choices?.[0]?.message?.content;
   if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new Error('xAI response contained no message content');
+    throw new Error('Groq response contained no message content');
   }
   return text;
 }
@@ -120,8 +123,8 @@ async function complete(
   config: ServerConfig,
   options: CompletionOptions,
 ): Promise<string> {
-  return engine === 'grok'
-    ? completeGrok(prompt, config, options)
+  return engine === 'groq'
+    ? completeGroq(prompt, config, options)
     : completeGemini(prompt, config, options);
 }
 

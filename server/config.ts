@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /** Which generative backend the gateway is allowed to reach for. */
-export type GenAiProvider = 'auto' | 'gemini' | 'grok' | 'local';
+export type GenAiProvider = 'auto' | 'gemini' | 'groq' | 'local';
 
 export interface ServerConfig {
   readonly port: number;
@@ -19,9 +19,9 @@ export interface ServerConfig {
   readonly genaiProvider: GenAiProvider;
   readonly geminiApiKey: string | null;
   readonly geminiModel: string;
-  readonly grokApiKey: string | null;
-  readonly grokModel: string;
-  readonly grokBaseUrl: string;
+  readonly groqApiKey: string | null;
+  readonly groqModel: string;
+  readonly groqBaseUrl: string;
   readonly airQualityBaseUrl: string;
   readonly geocodingBaseUrl: string;
   readonly forecastBaseUrl: string;
@@ -33,10 +33,10 @@ const DEFAULT_AIR_QUALITY_URL = 'https://air-quality-api.open-meteo.com/v1';
 const DEFAULT_GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1';
 const DEFAULT_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const DEFAULT_GROK_MODEL = 'grok-4.7';
-const DEFAULT_GROK_BASE_URL = 'https://api.x.ai/v1';
+const DEFAULT_GROQ_MODEL = 'qwen/qwen3.8-27b';
+const DEFAULT_GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 
-const GENAI_PROVIDERS: readonly GenAiProvider[] = ['auto', 'gemini', 'grok', 'local'];
+const GENAI_PROVIDERS: readonly GenAiProvider[] = ['auto', 'gemini', 'groq', 'local'];
 
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3001'];
 
@@ -82,9 +82,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     genaiProvider: readProvider(env.GENAI_PROVIDER),
     geminiApiKey: env.GEMINI_API_KEY?.trim() ? env.GEMINI_API_KEY.trim() : null,
     geminiModel: env.GEMINI_MODEL?.trim() || DEFAULT_MODEL,
-    grokApiKey: env.GROK_API_KEY?.trim() ? env.GROK_API_KEY.trim() : null,
-    grokModel: env.GROK_MODEL?.trim() || DEFAULT_GROK_MODEL,
-    grokBaseUrl: env.GROK_BASE_URL?.trim() || DEFAULT_GROK_BASE_URL,
+    groqApiKey: env.GROQ_API_KEY?.trim() ? env.GROQ_API_KEY.trim() : null,
+    groqModel: env.GROQ_MODEL?.trim() || DEFAULT_GROQ_MODEL,
+    groqBaseUrl: env.GROQ_BASE_URL?.trim() || DEFAULT_GROQ_BASE_URL,
     airQualityBaseUrl: env.AIR_QUALITY_BASE_URL?.trim() || DEFAULT_AIR_QUALITY_URL,
     geocodingBaseUrl: env.GEOCODING_BASE_URL?.trim() || DEFAULT_GEOCODING_URL,
     forecastBaseUrl: env.FORECAST_BASE_URL?.trim() || DEFAULT_FORECAST_URL,

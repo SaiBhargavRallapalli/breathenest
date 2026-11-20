@@ -1,6 +1,6 @@
 // ============================================================
 // src/test/server/ai.test.ts
-// Generative provider selection and the Grok completion path:
+// Generative provider selection and the Groq completion path:
 // which backend gets called, what the outbound request looks
 // like, and every route back to the deterministic planner.
 // ============================================================
@@ -33,7 +33,7 @@ function newPlanCache(): TtlCache<DailyPlan> {
 }
 
 const PLAN_CONTENT = JSON.stringify({
-  summary: 'Grok wrote this household-specific summary.',
+  summary: 'Groq wrote this household-specific summary.',
   blocks: [
     { time: '06:30', title: 'Wake indoors', detail: 'Windows shut through dawn.', windowAqi: 176, risk: 'avoid', impact: 'Keeps ~140 µg out of the morning dose.' },
     { time: '08:00', title: 'Leave by metro', detail: 'Sealed carriage beats the kerb.', windowAqi: 176, risk: 'avoid', impact: 'Cuts the trip dose by about 60%.' },
@@ -43,8 +43,8 @@ const PLAN_CONTENT = JSON.stringify({
   ],
 });
 
-/** A successful xAI-shaped chat-completion body. */
-function grokOk(content: string) {
+/** A successful Groq-shaped chat-completion body. */
+function groqOk(content: string) {
   return {
     ok: true,
     status: 200,
@@ -62,45 +62,45 @@ describe('resolveEngine', () => {
   });
 
   it('prefers Gemini when both backends are keyed (auto)', () => {
-    const config = configWith({ GEMINI_API_KEY: 'g-key', GROK_API_KEY: 'x-key' });
+    const config = configWith({ GEMINI_API_KEY: 'g-key', GROQ_API_KEY: 'x-key' });
     expect(resolveEngine(config)).toBe('gemini');
   });
 
-  it('falls back to Grok when only Grok is keyed (auto)', () => {
-    const config = configWith({ GROK_API_KEY: 'x-key' });
-    expect(resolveEngine(config)).toBe('grok');
+  it('falls back to Groq when only Groq is keyed (auto)', () => {
+    const config = configWith({ GROQ_API_KEY: 'x-key' });
+    expect(resolveEngine(config)).toBe('groq');
   });
 
-  it('honours an explicit Grok selection', () => {
-    const config = configWith({ GENAI_PROVIDER: 'grok', GROK_API_KEY: 'x-key' });
-    expect(resolveEngine(config)).toBe('grok');
+  it('honours an explicit Groq selection', () => {
+    const config = configWith({ GENAI_PROVIDER: 'groq', GROQ_API_KEY: 'x-key' });
+    expect(resolveEngine(config)).toBe('groq');
   });
 
   it('resolves an explicit selection with no key to null, not an error', () => {
-    expect(resolveEngine(configWith({ GENAI_PROVIDER: 'grok' }))).toBeNull();
+    expect(resolveEngine(configWith({ GENAI_PROVIDER: 'groq' }))).toBeNull();
     expect(resolveEngine(configWith({ GENAI_PROVIDER: 'gemini' }))).toBeNull();
   });
 
   it('never calls out when local is forced, even with keys present', () => {
-    const config = configWith({ GENAI_PROVIDER: 'local', GROK_API_KEY: 'x-key', GEMINI_API_KEY: 'g-key' });
+    const config = configWith({ GENAI_PROVIDER: 'local', GROQ_API_KEY: 'x-key', GEMINI_API_KEY: 'g-key' });
     expect(resolveEngine(config)).toBeNull();
   });
 });
 
-describe('generatePlan — Grok path', () => {
-  it('calls the chat-completions endpoint and returns a Grok-attributed plan', async () => {
-    const fetchMock = vi.fn(async (_input: unknown, _init?: unknown) => grokOk(PLAN_CONTENT));
+describe('generatePlan — Groq path', () => {
+  it('calls the chat-completions endpoint and returns a Groq-attributed plan', async () => {
+    const fetchMock = vi.fn(async (_input: unknown, _init?: unknown) => groqOk(PLAN_CONTENT));
     vi.stubGlobal('fetch', fetchMock);
 
     const { plan, source } = await generatePlan(
       planRequest(),
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       newPlanCache(),
     );
 
-    expect(source).toBe('grok');
-    expect(plan.generator).toBe('grok');
-    expect(plan.summary).toBe('Grok wrote this household-specific summary.');
+    expect(source).toBe('groq');
+    expect(plan.generator).toBe('groq');
+    expect(plan.summary).toBe('Groq wrote this household-specific summary.');
     expect(plan.blocks).toHaveLength(5);
     expect(plan.blocks.every((block) => block.impact.length > 0)).toBe(true);
 
@@ -109,13 +109,15 @@ describe('generatePlan — Grok path', () => {
       string,
       { headers: Record<string, string>; body: string; signal: AbortSignal },
     ];
-    expect(url).toBe('https://api.x.ai/v1/chat/completions');
-    expect(init.headers.authorization).toBe('Bearer xai-test-key');
+    expect(url).toBe('https://api.groq.com/openai/v1/chat/completions');
+    expect(init.headers.authorization).toBe('Bearer groq-test-key');
     expect(init.headers['content-type']).toBe('application/json');
+    // Cloudflare in front of Groq answers 1010 to a blank/blacklisted UA.
+    expect(init.headers['user-agent']).toBe('BreatheNest/1.0');
     expect(init.signal).toBeInstanceOf(AbortSignal);
 
     const body = JSON.parse(init.body) as Record<string, unknown>;
-    expect(body.model).toBe('grok-4.7');
+    expect(body.model).toBe('qwen/qwen3.8-27b');
     expect(body.temperature).toBe(0.4);
     expect(Array.isArray(body.messages)).toBe(true);
   });
@@ -129,7 +131,7 @@ describe('generatePlan — Grok path', () => {
 
     const { plan, source } = await generatePlan(
       planRequest(),
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       newPlanCache(),
     );
 
@@ -140,11 +142,11 @@ describe('generatePlan — Grok path', () => {
 
   it('discards a reply that is not valid JSON', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    vi.stubGlobal('fetch', vi.fn(async () => grokOk('Sorry, here are some thoughts instead.')));
+    vi.stubGlobal('fetch', vi.fn(async () => groqOk('Sorry, here are some thoughts instead.')));
 
     const { plan, source } = await generatePlan(
       planRequest(),
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       newPlanCache(),
     );
 
@@ -153,15 +155,15 @@ describe('generatePlan — Grok path', () => {
   });
 
   it('reuses the cached plan instead of calling the model twice', async () => {
-    const fetchMock = vi.fn(async () => grokOk(PLAN_CONTENT));
+    const fetchMock = vi.fn(async () => groqOk(PLAN_CONTENT));
     vi.stubGlobal('fetch', fetchMock);
-    const config = configWith({ GROK_API_KEY: 'xai-test-key' });
+    const config = configWith({ GROQ_API_KEY: 'groq-test-key' });
     const cache = newPlanCache();
 
     await generatePlan(planRequest(), config, cache);
     const second = await generatePlan(planRequest(), config, cache);
 
-    expect(second.source).toBe('grok');
+    expect(second.source).toBe('groq');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -176,7 +178,7 @@ describe('generatePlan — Grok path', () => {
   });
 });
 
-describe('generateAdvisory — Grok path', () => {
+describe('generateAdvisory — Groq path', () => {
   const request: AdvisoryRequest = {
     locationName: 'Delhi',
     aqi: 185,
@@ -184,29 +186,29 @@ describe('generateAdvisory — Grok path', () => {
     members: [],
   };
 
-  it('returns the model text and attributes it to Grok', async () => {
+  it('returns the model text and attributes it to Groq', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => grokOk('Air quality is unhealthy. Keep windows shut and run filtration.')),
+      vi.fn(async () => groqOk('Air quality is unhealthy. Keep windows shut and run filtration.')),
     );
 
     const { advisory, source } = await generateAdvisory(
       request,
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       new TtlCache<string>(20, 60_000),
     );
 
-    expect(source).toBe('grok');
+    expect(source).toBe('groq');
     expect(advisory).toContain('Keep windows shut');
   });
 
   it('falls back when the reply is implausibly long', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    vi.stubGlobal('fetch', vi.fn(async () => grokOk('word '.repeat(500))));
+    vi.stubGlobal('fetch', vi.fn(async () => groqOk('word '.repeat(500))));
 
     const { advisory, source } = await generateAdvisory(
       request,
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       new TtlCache<string>(20, 60_000),
     );
 
@@ -220,7 +222,7 @@ describe('generateAdvisory — Grok path', () => {
 
     const { source } = await generateAdvisory(
       request,
-      configWith({ GROK_API_KEY: 'xai-test-key' }),
+      configWith({ GROQ_API_KEY: 'groq-test-key' }),
       new TtlCache<string>(20, 60_000),
     );
 
@@ -228,25 +230,25 @@ describe('generateAdvisory — Grok path', () => {
   });
 });
 
-describe('loadConfig — Grok settings', () => {
+describe('loadConfig — Groq settings', () => {
   it('reads the key, model and base URL from the environment', () => {
     const config = configWith({
-      GROK_API_KEY: '  xai-secret  ',
-      GROK_MODEL: 'grok-4.6',
-      GROK_BASE_URL: 'https://proxy.example/xai/v1',
+      GROQ_API_KEY: '  groq-secret  ',
+      GROQ_MODEL: 'llama-3.3-70b-versatile',
+      GROQ_BASE_URL: 'https://proxy.example/groq/v1',
     });
 
-    expect(config.grokApiKey).toBe('xai-secret');
-    expect(config.grokModel).toBe('grok-4.6');
-    expect(config.grokBaseUrl).toBe('https://proxy.example/xai/v1');
+    expect(config.groqApiKey).toBe('groq-secret');
+    expect(config.groqModel).toBe('llama-3.3-70b-versatile');
+    expect(config.groqBaseUrl).toBe('https://proxy.example/groq/v1');
   });
 
-  it('defaults to grok-4.7 on the public endpoint with no key', () => {
+  it('defaults to qwen/qwen3.8-27b on the public endpoint with no key', () => {
     const config = configWith({});
 
-    expect(config.grokApiKey).toBeNull();
-    expect(config.grokModel).toBe('grok-4.7');
-    expect(config.grokBaseUrl).toBe('https://api.x.ai/v1');
+    expect(config.groqApiKey).toBeNull();
+    expect(config.groqModel).toBe('qwen/qwen3.8-27b');
+    expect(config.groqBaseUrl).toBe('https://api.groq.com/openai/v1');
     expect(config.genaiProvider).toBe('auto');
   });
 
@@ -255,7 +257,7 @@ describe('loadConfig — Grok settings', () => {
   });
 
   it('accepts each documented provider value', () => {
-    for (const provider of ['auto', 'gemini', 'grok', 'local']) {
+    for (const provider of ['auto', 'gemini', 'groq', 'local']) {
       expect(configWith({ GENAI_PROVIDER: provider }).genaiProvider).toBe(provider);
     }
   });

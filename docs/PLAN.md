@@ -42,7 +42,7 @@ Pure, dependency-free modules built first and tested first: `guards` → `aqi` (
 ### Phase 2 — Boundaries (`src/services/`, `server/`)
 Typed `fetch` client with uniform `ApiError` + timeouts; defensive `storage`; Express 5 gateway
 with Zod schemas, TTL+LRU cache, helmet/CORS/rate-limit/error-boundary, Open-Meteo proxy, and the
-Gemini/Grok layer with re-validation + local fallback.
+Gemini/Groq layer with re-validation + local fallback.
 **Gate:** 66 server tests + 11 api + 13 storage green, including the raw-`http.request` CORS proof
 and the `GEMINI_API_KEY: ''` boot.
 
@@ -61,7 +61,7 @@ gateway-down route, the swaps→impact journey and the exposure-caveat copy.
 ### Phase 5 — Quality consolidation
 Full `npm run verify`; coverage thresholds set and cleared; lint warnings driven to zero
 (`--max-warnings 0`); bundle split for the React vendor chunk.
-**Gate:** lint 0/0 · tsc 0 · 264/264 tests · coverage 94.17/87.86/96.87/95.79 · build ≈104 kB gzip.
+**Gate:** lint 0/0 · tsc 0 · 284/284 tests · coverage 94.17/87.86/96.87/95.79 · build ≈104 kB gzip.
 
 ### Phase 6 — Evidence
 `metadata.json`, `README.md`, and the pillar reports in `docs/`, each claim pointing at a test.
@@ -77,7 +77,7 @@ npm run dev             # API :3001 + Vite :5173, no key required
 
 | Claim | Command that proves it |
 | --- | --- |
-| 264 tests pass | `npx vitest run` |
+| 284 tests pass | `npx vitest run` |
 | Coverage above thresholds | `npm run test:coverage` |
 | No lint warnings | `npx eslint . --max-warnings 0` |
 | Types strict, 0 errors | `npm run typecheck` |

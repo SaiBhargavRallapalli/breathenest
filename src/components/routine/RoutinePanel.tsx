@@ -126,7 +126,7 @@ export function RoutinePanel() {
           >
             {plan.generator === 'local'
               ? 'Local planner'
-              : `GenAI plan (${plan.generator === 'grok' ? 'Grok' : 'Gemini'})`}
+              : `GenAI plan (${plan.generator === 'groq' ? 'Groq' : 'Gemini'})`}
           </span>
           {degraded && (
             <span className="rounded-full bg-warn/15 px-2.5 py-1 font-semibold text-warn">
@@ -192,7 +192,7 @@ export function RoutinePanel() {
             configuration.
           </li>
           <li className="rounded-xl border border-edge bg-raised p-3">
-            <strong className="text-chalk">GenAI generator (Gemini or Grok)</strong> — rewrites the
+            <strong className="text-chalk">GenAI generator (Gemini or Groq)</strong> — rewrites the
             same plan with household-specific language, then has every field re-validated before it
             is shown.
           </li>

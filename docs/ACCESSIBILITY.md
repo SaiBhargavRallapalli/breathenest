@@ -74,7 +74,7 @@ text twin rather than the SVG. If someone deletes a twin, the suite fails.
 | Location changed | `aria-live="polite"` in `LocationPicker` — "Showing Delhi, National Capital Territory" |
 | Live data unavailable | the degraded notice appears in a polite live region — "Sample readings shown" — so a user who cannot see the banner still learns the data is not live |
 | Refresh pressed | the same region re-announces the new reading |
-| Plan engine switch | the badge text (`Local planner` / `GenAI plan (Gemini or Grok)` / gateway-offline note) is plain text in the flow, read in document order |
+| Plan engine switch | the badge text (`Local planner` / `GenAI plan (Gemini or Groq)` / gateway-offline note) is plain text in the flow, read in document order |
 
 Nothing uses `aria-live="assertive"` — the app never interrupts, because a screen-reader user
 mid-sentence in the current AQI is exactly who should not be cut off.

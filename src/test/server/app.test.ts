@@ -157,6 +157,27 @@ describe('GET /api/health', () => {
     expect(body.model).toBe('local-fallback');
   });
 
+  it('names the engine that would actually answer when a key is present', async () => {
+    const keyed = createApp(
+      loadConfig({
+        NODE_ENV: 'test',
+        GROQ_API_KEY: 'test-key',
+        AIR_QUALITY_BASE_URL: `${upstreamUrl}/v1`,
+        GEOCODING_BASE_URL: `${upstreamUrl}/v1`,
+        FORECAST_BASE_URL: `${upstreamUrl}/v1`,
+      }),
+    );
+    const listener = keyed.listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => listener.once('listening', () => resolve()));
+    const { port } = listener.address() as AddressInfo;
+
+    const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+    const body = (await response.json()) as { model: string };
+    await new Promise<void>((resolve) => listener.close(() => resolve()));
+
+    expect(body.model).toBe('groq:qwen/qwen3.8-27b');
+  });
+
   it('sends security headers and hides the framework', async () => {
     const response = await fetch(`${baseUrl}/api/health`);
     expect(response.headers.get('content-security-policy')).toContain("default-src 'self'");

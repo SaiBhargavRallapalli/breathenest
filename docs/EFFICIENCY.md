@@ -24,7 +24,7 @@ test suite finishes fast enough that nobody is tempted to skip it.
 Things that are *not* in the bundle: no charting library (the 24-hour strip is 40 lines of divs),
 no date library (hours are integers 0–23), no i18n framework (a flat `Record` per language), no
 CSS-in-Runtime (Tailwind compiles away). The one runtime dependency beyond React is the Gemini SDK,
-and it is **server-only** — `server/ai.ts` is never reachable from `src/`. The Grok path adds no
+and it is **server-only** — `server/ai.ts` is never reachable from `src/`. The Groq path adds no
 dependency at all: it is one `fetch` to the OpenAI-compatible endpoint.
 
 The vendor split exists so a React patch release does not invalidate the app chunk in a return
@@ -68,7 +68,7 @@ the process: `localPlan()` is a pure function of the validated payload. The GenA
 ## 4. What the tests cost
 
 ```
-npx vitest run        → 17 files, 264 tests, ~2.8 s wall clock
+npx vitest run        → 18 files, 284 tests, ~2.8 s wall clock
 npm run test:coverage → same + v8 instrumentation
 ```
 
@@ -98,7 +98,7 @@ an assertion instead of a timer.
 | --- | --- |
 | First-visit payload (gzip) | ≈104 kB |
 | App JS (gzip) | 93.8 kB |
-| Test suite wall clock | ~2.8 s / 264 tests |
+| Test suite wall clock | ~2.8 s / 284 tests |
 | Build wall clock | ~0.4 s |
 | Upstream calls per tab switch | 0 |
 | Upstream calls per app load | 1 (air bundle) + 1 (geocode, if the user searches) |
@@ -110,6 +110,6 @@ an assertion instead of a timer.
   readability win outweighs a constant-factor loss nobody can measure.
 - **Sample fallback bundled into the app** (a few kB) rather than fetched — it is what makes the
   app honest and useful offline, and it is labelled `source: sample` in a live region.
-- **`gemini-2.5-flash` / `grok-4.7` by default, `reasoning_effort: low` on Grok** — chosen for
+- **`gemini-2.5-flash` / `qwen/qwen3.8-27b` by default, `reasoning_effort: low` on Groq** — chosen for
   latency on a per-request interactive path; a slower model would be justified only if quality
   demanded it, and the local planner already guarantees a good baseline answer.

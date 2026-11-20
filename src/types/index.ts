@@ -179,7 +179,7 @@ export interface DailyPlan {
   readonly blocks: readonly RoutineBlock[];
   readonly bestOutdoorWindow: TimeWindow | null;
   readonly summary: string;
-  readonly generator: 'gemini' | 'grok' | 'local';
+  readonly generator: 'gemini' | 'groq' | 'local';
   readonly generatedAt: string;
 }
 

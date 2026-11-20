@@ -10,7 +10,7 @@ Every claim below is executable: the referenced test file fails the build if the
 ## 1. Threat model in one paragraph
 
 BreatheNest's gateway accepts HTTP from browsers it does not control, forwards part of that traffic
-to Open-Meteo and to a model provider (Google Gemini or xAI Grok), and puts model output back on a
+to Open-Meteo and to a model provider (Google Gemini or Groq), and puts model output back on a
 screen. So the four things that
 must hold are: (1) no secret ever reaches the browser, (2) nothing an attacker sends reaches
 business logic unvalidated, (3) nothing a model returns reaches the DOM un-sanitised, and (4) no
@@ -21,7 +21,7 @@ below with its proof.
 
 | Control | Where | Evidence |
 | --- | --- | --- |
-| `GEMINI_API_KEY` / `GROK_API_KEY` read only in `server/config.ts`, never prefixed `VITE_` | `server/config.ts` | No `import.meta.env` reference to either key exists anywhere (grep for them → server files only) |
+| `GEMINI_API_KEY` / `GROQ_API_KEY` read only in `server/config.ts`, never prefixed `VITE_` | `server/config.ts` | No `import.meta.env` reference to either key exists anywhere (grep for them → server files only) |
 | `.env` in `.gitignore`; `.env.example` holds empty placeholders | `.gitignore`, `.env.example` | Repository contains no `.env` |
 | Key absent ⇒ **entire feature still works** | `server/ai.ts` → `localPlan()` | `server/app.test.ts` boots the app with `GEMINI_API_KEY: ''` and every plan/advisory test passes |
 | Config values range-checked at load, typo fails loudly | `config.ts` `readInt()` throws `RangeError` | Bad `PORT`/`UPSTREAM_CACHE_TTL_SECONDS` cannot silently become a broken runtime |
@@ -64,7 +64,7 @@ Additional server-side limits:
 
 ## 4. The model is an untrusted writer
 
-Model output — Gemini's *or* Grok's — is treated exactly like user input. `server/ai.ts` applies
+Model output — Gemini's *or* Groq's — is treated exactly like user input. `server/ai.ts` applies
 three independent gates:
 
 1. **`parseJson`** — strips a code fence, `JSON.parse` in a try/catch; anything non-object ⇒ `null`.
@@ -95,8 +95,10 @@ boundary, the prompt wording is defence in depth. `MAX_BLOCKS`, the string caps 
 **Model endpoints are rate-limited**: 20 requests/minute/IP on `/api/plan` and `/api/advisory`
 (`middleware.ts:66`) with a JSON 429 — protecting both the vendor quota and the server's compute.
 Both providers are reached **server-side only** over HTTPS with a bearer header
-(`Authorization: Bearer …` for Grok, the SDK's `x-goog-api-key` for Gemini); neither key is ever
-present in the browser bundle.
+(`Authorization: Bearer …` for Groq, the SDK's `x-goog-api-key` for Gemini); neither key is ever
+present in the browser bundle. The Groq client also sends an explicit, identifying
+`User-Agent: BreatheNest/1.0` — Cloudflare in front of the API answers error 1010 to blank or
+blacklisted agents, and an identified client is both compatible and auditable.
 (Disabled only under `NODE_ENV=test` so suites do not throttle each other; the limiter's real
 behaviour is unit-tested separately in `middleware.test.ts`.)
 

@@ -40,19 +40,19 @@ micrograms inhaled, percent reduction, kilograms of CO₂ or currency per year. 
 
 ## Two engines, one shape of answer
 
-BreatheNest has a **deterministic local planner** and a **GenAI generator** (Google Gemini or xAI
-Grok — whichever key you supply), and it is designed so the app is complete with either:
+BreatheNest has a **deterministic local planner** and a **GenAI generator** (Google Gemini or Groq
+Groq — whichever key you supply), and it is designed so the app is complete with either:
 
 1. **Local planner** (`src/lib/planner.ts`) — a pure function of the household profile and the
    24-hour forecast. It searches for the cleanest slot, prices every block in inhaled PM2.5, and
    always returns a complete, chronologically ordered plan. It needs no network, no key, no config.
 2. **GenAI generator** (`server/ai.ts`) — rewrites the same plan with household-specific language
-   through Gemini *or* Grok (`GENAI_PROVIDER=auto` tries Gemini, then Grok). The output is
+   through Gemini *or* Groq (`GENAI_PROVIDER=auto` tries Gemini, then Groq). The output is
    **re-validated field by field** before it is shown; anything malformed is discarded and the
    local planner's answer is used instead.
 
 The UI always states which engine produced the plan (`Local planner`, `GenAI plan (Gemini)` or
-`GenAI plan (Grok)`) and whether a fallback was taken. There is no path in which the user sees an empty or broken plan.
+`GenAI plan (Groq)`) and whether a fallback was taken. There is no path in which the user sees an empty or broken plan.
 
 ## Live data with a labelled fallback
 
@@ -75,7 +75,7 @@ Open <http://localhost:5173>. **No API key is required** — everything works ou
 Optional GenAI:
 
 ```bash
-cp .env.example .env        # then set GEMINI_API_KEY=... or GROK_API_KEY=...
+cp .env.example .env        # then set GEMINI_API_KEY=... or GROQ_API_KEY=...
 npm run dev
 ```
 
@@ -97,7 +97,7 @@ React 19 (TS strict)                 Express 5 gateway
 │ AppShell / tablist    │  fetch      │ Zod request validation        │
 │  6 panels             │ ─────────► │  → TTL+LRU cache              │
 │ AppContext (one store)│  /api/*     │  → Open-Meteo proxy           │
-│ lib/compute (pure)    │             │  → Gemini/Grok (validated)    │
+│ lib/compute (pure)    │             │  → Gemini/Groq (validated)    │
 │ lib/planner (pure)    │             │  → helmet/CORS/rate-limit     │
 └──────────────────────┘             └──────────────────────────────┘
 ```
@@ -119,7 +119,7 @@ npm run verify   # eslint --max-warnings 0 → tsc --noEmit → vitest run → v
 | --- | --- |
 | ESLint 10 (flat, typescript-eslint) | 0 errors, 0 warnings |
 | TypeScript 5.9 (`strict`, `noUncheckedIndexedAccess`) | 0 errors |
-| Tests (Vitest 4, jsdom + real HTTP) | **283 / 283 passing** |
+| Tests (Vitest 4, jsdom + real HTTP) | **284 / 284 passing** |
 | Coverage (`src/lib/**`, `src/services/**`) | 94.2% stmts · 87.9% branch · 96.9% funcs · 95.8% lines |
 | Build | 308 kB app (94 kB gzip) + 12 kB vendor (4 kB gzip) |
 

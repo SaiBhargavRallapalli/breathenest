@@ -65,13 +65,13 @@ What the model genuinely adds:
 
 - prose that names *your* household ("Asha and you: AQI 185…"), not generic advice;
 - a multilingual advisory (`/api/advisory`) phrased for the selected language;
-- a choice of backend: the same contract is served by Google Gemini **or** xAI Grok, selected by
+- a choice of backend: the same contract is served by Google Gemini **or** Groq, selected by
   `GENAI_PROVIDER`, with neither required for the app to work;
 - plan summaries that read like a person wrote them.
 
 What it is deliberately prevented from doing: producing unvalidated fields, unbounded text, wrong
 `risk` labels, or more than `MAX_BLOCKS` items (see `docs/SECURITY.md` §4). The UI states which
-engine answered (`Local planner` vs `GenAI plan (Gemini)` vs `GenAI plan (Grok)`), so the user is
+engine answered (`Local planner` vs `GenAI plan (Gemini)` vs `GenAI plan (Groq)`), so the user is
 never misled about provenance.
 
 ## 5. What a skeptical reviewer should do
@@ -86,7 +86,7 @@ npm run dev                 # no key needed
 3. **Switch location to a dirty city** → watch the guidance, windows and stagnation change.
 4. **Add a sensitive member to the household** → the AQI tab grows a household-specific warning.
 5. **Select three swaps** → the Impact ledger totals them and shows equivalents.
-6. **Read `docs/TESTING.md`** → run `npx vitest run` and see 264 green in under three seconds.
+6. **Read `docs/TESTING.md`** → run `npx vitest run` and see 284 green in under three seconds.
 
 Each step verifies a different requirement line from §2 without reading any code.
 
@@ -106,7 +106,7 @@ Each step verifies a different requirement line from §2 without reading any cod
 ## 7. Distinctness
 
 BreatheNest is an original implementation: its own name, architecture (single context store +
-pure `lib/compute` + Express 5 gateway), test organisation (17 files / 264 tests), documentation
+pure `lib/compute` + Express 5 gateway), test organisation (18 files / 284 tests), documentation
 structure (`docs/` pillar reports with evidence tables), and copy. Inspiration was taken from the
 problem domain — air-quality assistants are a well-known space — not from any existing repository's
 code or prose.

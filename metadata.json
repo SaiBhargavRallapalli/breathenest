@@ -18,34 +18,111 @@
     "testRunner": "vitest 4.1.12",
     "testEnvironment": "jsdom 29 (components) + real HTTP loopback (gateway)",
     "totalTestFiles": 18,
-    "totalTests": 283,
-    "passedTests": 283,
+    "totalTests": 284,
+    "passedTests": 284,
     "failedTests": 0,
     "passRatePercent": 100,
     "suites": [
-      { "name": "compute/guards.test.ts", "tests": 15, "purpose": "Numeric guard rails: finiteness, ranges, rounding, aggregates" },
-      { "name": "compute/aqi.test.ts", "tests": 22, "purpose": "US EPA breakpoint interpolation, band edges, worst-pollutant rule, reverse lookup" },
-      { "name": "compute/windows.test.ts", "tests": 15, "purpose": "Cleanest/dirtiest slot search, peak-based risk, day statistics" },
-      { "name": "compute/exposure.test.ts", "tests": 14, "purpose": "Inhaled-dose model, protection factor, indoor penetration ratios" },
-      { "name": "compute/indoor.test.ts", "tests": 17, "purpose": "Room volume, CADR sizing, filter airflow, clearance decay, vent scheduler" },
-      { "name": "compute/impact.test.ts", "tests": 15, "purpose": "CO2 aggregation, relatable equivalents, community annualisation" },
-      { "name": "compute/forecast.test.ts", "tests": 14, "purpose": "Stagnation/inversion heuristic, series smoothing, diurnal amplitude" },
-      { "name": "planner.test.ts", "tests": 10, "purpose": "Deterministic fallback plan: guaranteed output, chronology, quantified impact" },
-      { "name": "storage.test.ts", "tests": 13, "purpose": "Persistence under corrupted, missing and blocked localStorage" },
-      { "name": "api.test.ts", "tests": 11, "purpose": "Typed browser client: uniform errors, timeouts, query construction" },
-      { "name": "server/cache.test.ts", "tests": 12, "purpose": "TTL + LRU upstream cache semantics" },
-      { "name": "server/schemas.test.ts", "tests": 24, "purpose": "Zod contracts: every malformed request rejected before logic runs" },
-      { "name": "server/middleware.test.ts", "tests": 13, "purpose": "Security headers, CORS allowlist, rate limiting, non-leaky error boundary" },
-      { "name": "server/app.test.ts", "tests": 17, "purpose": "End-to-end HTTP against the Express app with a stubbed upstream provider" },
-      { "name": "server/ai.test.ts", "tests": 18, "purpose": "Provider selection (Gemini/Grok/local), Grok request shape, every fallback route, GENAI_PROVIDER parsing" },
-      { "name": "render/shell.test.tsx", "tests": 18, "purpose": "Landmarks, tablist keyboard support, i18n + RTL, location controls, degraded-data notice" },
-      { "name": "render/air.test.tsx", "tests": 16, "purpose": "Gauge text twin, household guidance, stagnation reasoning, forecast SR list, pollutants" },
-      { "name": "render/flows.test.tsx", "tests": 19, "purpose": "Routine generation (Gemini, Grok + fallback), swaps-to-impact journey, pledges, indoor calculator" }
+      {
+        "name": "compute/guards.test.ts",
+        "tests": 15,
+        "purpose": "Numeric guard rails: finiteness, ranges, rounding, aggregates"
+      },
+      {
+        "name": "compute/aqi.test.ts",
+        "tests": 22,
+        "purpose": "US EPA breakpoint interpolation, band edges, worst-pollutant rule, reverse lookup"
+      },
+      {
+        "name": "compute/windows.test.ts",
+        "tests": 15,
+        "purpose": "Cleanest/dirtiest slot search, peak-based risk, day statistics"
+      },
+      {
+        "name": "compute/exposure.test.ts",
+        "tests": 14,
+        "purpose": "Inhaled-dose model, protection factor, indoor penetration ratios"
+      },
+      {
+        "name": "compute/indoor.test.ts",
+        "tests": 17,
+        "purpose": "Room volume, CADR sizing, filter airflow, clearance decay, vent scheduler"
+      },
+      {
+        "name": "compute/impact.test.ts",
+        "tests": 15,
+        "purpose": "CO2 aggregation, relatable equivalents, community annualisation"
+      },
+      {
+        "name": "compute/forecast.test.ts",
+        "tests": 14,
+        "purpose": "Stagnation/inversion heuristic, series smoothing, diurnal amplitude"
+      },
+      {
+        "name": "planner.test.ts",
+        "tests": 10,
+        "purpose": "Deterministic fallback plan: guaranteed output, chronology, quantified impact"
+      },
+      {
+        "name": "storage.test.ts",
+        "tests": 13,
+        "purpose": "Persistence under corrupted, missing and blocked localStorage"
+      },
+      {
+        "name": "api.test.ts",
+        "tests": 11,
+        "purpose": "Typed browser client: uniform errors, timeouts, query construction"
+      },
+      {
+        "name": "server/cache.test.ts",
+        "tests": 12,
+        "purpose": "TTL + LRU upstream cache semantics"
+      },
+      {
+        "name": "server/schemas.test.ts",
+        "tests": 24,
+        "purpose": "Zod contracts: every malformed request rejected before logic runs"
+      },
+      {
+        "name": "server/middleware.test.ts",
+        "tests": 13,
+        "purpose": "Security headers, CORS allowlist, rate limiting, non-leaky error boundary"
+      },
+      {
+        "name": "server/app.test.ts",
+        "tests": 18,
+        "purpose": "End-to-end HTTP against the Express app with a stubbed upstream provider, incl. health engine reporting"
+      },
+      {
+        "name": "server/ai.test.ts",
+        "tests": 18,
+        "purpose": "Provider selection (Gemini/Groq/local), Groq request shape, every fallback route, GENAI_PROVIDER parsing"
+      },
+      {
+        "name": "render/shell.test.tsx",
+        "tests": 18,
+        "purpose": "Landmarks, tablist keyboard support, i18n + RTL, location controls, degraded-data notice"
+      },
+      {
+        "name": "render/air.test.tsx",
+        "tests": 16,
+        "purpose": "Gauge text twin, household guidance, stagnation reasoning, forecast SR list, pollutants"
+      },
+      {
+        "name": "render/flows.test.tsx",
+        "tests": 19,
+        "purpose": "Routine generation (Gemini, Groq + fallback), swaps-to-impact journey, pledges, indoor calculator"
+      }
     ]
   },
   "qualityGates": {
     "command": "npm run verify",
-    "stages": ["eslint --max-warnings 0", "tsc --noEmit", "vitest run", "vite build"],
+    "stages": [
+      "eslint --max-warnings 0",
+      "tsc --noEmit",
+      "vitest run",
+      "vite build"
+    ],
     "status": "passing"
   },
   "linterSummary": {
@@ -62,7 +139,12 @@
   },
   "typecheckSummary": {
     "compiler": "TypeScript 5.9 strict",
-    "options": ["strict", "noUncheckedIndexedAccess", "noImplicitOverride", "verbatimModuleSyntax"],
+    "options": [
+      "strict",
+      "noUncheckedIndexedAccess",
+      "noImplicitOverride",
+      "verbatimModuleSyntax"
+    ],
     "errors": 0
   },
   "coverageSummary": {
@@ -72,7 +154,12 @@
     "branches": 87.86,
     "functions": 96.87,
     "lines": 95.79,
-    "thresholds": { "statements": 85, "branches": 80, "functions": 85, "lines": 85 },
+    "thresholds": {
+      "statements": 85,
+      "branches": 80,
+      "functions": 85,
+      "lines": 85
+    },
     "status": "above thresholds"
   },
   "buildSummary": {
@@ -93,8 +180,8 @@
     "eslint": "10.15.0",
     "zod": "4.6.7",
     "geminiModel": "gemini-2.5-flash (optional — full functionality without a key)",
-    "grokModel": "grok-4.7 (optional, alternate GenAI backend — full functionality without a key)",
-    "genaiProvider": "GENAI_PROVIDER=auto|gemini|grok|local"
+    "groqModel": "qwen/qwen3.8-27b (optional, alternate GenAI backend — full functionality without a key)",
+    "genaiProvider": "GENAI_PROVIDER=auto|gemini|groq|local"
   },
   "dataSources": {
     "primary": "Open-Meteo Air Quality API (key-free, server-provided)",

@@ -19,7 +19,7 @@ import {
   securityHeaders,
 } from './middleware';
 import { fetchAirPayload, searchLocations, type AirPayload, type GeoResult } from './airQuality';
-import { generateAdvisory, generatePlan } from './ai';
+import { generateAdvisory, generatePlan, resolveEngine } from './ai';
 import {
   advisoryRequestSchema,
   airQualityQuerySchema,
@@ -64,7 +64,14 @@ export function createApp(config: ServerConfig = loadConfig()): express.Express 
         plan: planCache.size,
         advisory: advisoryCache.size,
       },
-      model: config.geminiApiKey ? 'configured' : 'local-fallback',
+      // Names the engine that would actually answer this request, so a
+      // keyed Groq (or Gemini) is not mistaken for a dead local fallback.
+      model: (() => {
+        const engine = resolveEngine(config);
+        if (engine === 'gemini') return `gemini:${config.geminiModel}`;
+        if (engine === 'groq') return `groq:${config.groqModel}`;
+        return 'local-fallback';
+      })(),
     });
   });
 

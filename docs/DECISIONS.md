@@ -156,14 +156,14 @@ worth reading.
 
 ## D-011 · Two model vendors, one contract
 
-**Situation.** Gemini was the first integration; a second vendor (xAI Grok) became available and a
+**Situation.** Gemini was the first integration; a second vendor (Groq) became available and a
 single-vendor dependency on a keyed API is a single point of failure for the GenAI feature.
 
 **Options.** (a) swap the vendor outright · (b) support both behind one interface · (c) let users
 configure a generic OpenAI-compatible endpoint.
 
-**Decision.** Option 2 — `resolveEngine()` in `server/ai.ts` picks `gemini`, `grok` or `local` from
-`GENAI_PROVIDER` (`auto` = Gemini if keyed, else Grok if keyed, else local). Both backends return
+**Decision.** Option 2 — `resolveEngine()` in `server/ai.ts` picks `gemini`, `groq` or `local` from
+`GENAI_PROVIDER` (`auto` = Gemini if keyed, else Groq if keyed, else local). Both backends return
 plain text that flows through the *same* `parseJson → sanitizeBlocks → reconcile` gate; only the
 transport differs (official SDK vs one `fetch` to the OpenAI-compatible endpoint).
 
