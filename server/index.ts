@@ -5,15 +5,14 @@
 // ============================================================
 
 import { loadConfig } from './config';
-import { createApp } from './app';
+import { createApp, engineLabel } from './app';
 
 const config = loadConfig();
 const app = createApp(config);
 
 if (!config.isTest) {
   app.listen(config.port, () => {
-    const mode = config.geminiApiKey ? 'Gemini + local fallback' : 'local planner (no API key set)';
-    console.log(`[breathenest] listening on http://localhost:${config.port} — ${mode}`);
+    console.log(`[breathenest] listening on http://localhost:${config.port} — ${engineLabel(config)}`);
   });
 }
 

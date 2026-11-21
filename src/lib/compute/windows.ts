@@ -6,14 +6,23 @@
 // ============================================================
 
 import type { HourPoint, RiskLevel, TimeWindow } from '@/types';
+import { AQI_UPPER_BOUNDS } from '@/constants/aqiBands';
 import { assertPositive, maxOf, mean, minOf, round1 } from './guards';
+
+/**
+ * Activity-risk ladder: the first three EPA bounds, each paired with the
+ * label it earns. Derived from `AQI_UPPER_BOUNDS` so the risk wording and
+ * the health category can never be computed from different numbers.
+ */
+const RISK_LADDER = [
+  { max: AQI_UPPER_BOUNDS[0], level: 'ideal' },
+  { max: AQI_UPPER_BOUNDS[1], level: 'acceptable' },
+  { max: AQI_UPPER_BOUNDS[2], level: 'poor' },
+] as const;
 
 /** AQI → activity risk band. Thresholds follow the EPA category edges. */
 export function classifyRisk(aqi: number): RiskLevel {
-  if (aqi <= 50) return 'ideal';
-  if (aqi <= 100) return 'acceptable';
-  if (aqi <= 150) return 'poor';
-  return 'avoid';
+  return RISK_LADDER.find((step) => aqi <= step.max)?.level ?? 'avoid';
 }
 
 export interface WindowOptions {
@@ -21,7 +30,7 @@ export interface WindowOptions {
   readonly durationHours?: number;
   /** How many slots to return (default 3). */
   readonly limit?: number;
-  /** Reject any slot whose peak AQI exceeds this (default 150). */
+  /** Reject any slot whose peak AQI exceeds this (default: the EPA \"poor\" edge). */
   readonly maxPeakAqi?: number;
   /** Only consider hours from this index onwards (default 0). */
   readonly fromHour?: number;
@@ -30,9 +39,18 @@ export interface WindowOptions {
 const DEFAULTS: Required<WindowOptions> = {
   durationHours: 2,
   limit: 3,
-  maxPeakAqi: 150,
+  maxPeakAqi: RISK_LADDER[2].max,
   fromHour: 0,
 };
+
+/**
+ * Peak AQI a two-hour slot must stay at or below to count as a *clean*
+ * outdoor window (stricter than the EPA "poor" edge: "acceptable" is not
+ * "good enough to send the kids out"). Shared by the planner that picks
+ * the window and the prompt that tells the model about it, so the two
+ * can never disagree.
+ */
+export const CLEAN_WINDOW_MAX_PEAK_AQI = 110;
 
 /**
  * Finds the cleanest contiguous slots in a day.

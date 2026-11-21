@@ -57,6 +57,7 @@ responses are shared across users.
 | Upstream timeouts | `AbortSignal.timeout(REQUEST_TIMEOUT_MS)` on every Open-Meteo call | A hung provider cannot hold sockets or event-loop promises open. |
 | Browser timeouts | `AbortSignal.timeout(TIMEOUT_MS)` in `services/api.ts` | The UI fails to its labelled sample data instead of spinning forever. |
 | Rate limiting | 20 req/min/IP on `/api/plan` and `/api/advisory` | Caps model spend and prevents compute exhaustion (see `docs/SECURITY.md` §4). |
+| Metered-model spend | Groq bills **output tokens/min = 1000** for `qwen/qwen3.8-27b` (measured: asking for 2048 is rejected instantly with a 429) | 900-token output cap, `reasoning_effort: none` (reasoning tokens otherwise consume the whole budget and return zero content), single-flight dedupe of identical concurrent plan requests, one bounded retry on 429 — all measured against the live API, where a burst of duplicate calls earned a real 429 |
 | Body cap | `express.json({ limit: '16kb' })` | Memory bounded per request. |
 | Key-free upstreams | Open-Meteo (air quality, geocoding, weather) | No key provisioning, no quota dashboard, no billing path — the whole app runs on public infrastructure. |
 
@@ -68,7 +69,7 @@ the process: `localPlan()` is a pure function of the validated payload. The GenA
 ## 4. What the tests cost
 
 ```
-npx vitest run        → 18 files, 284 tests, ~2.8 s wall clock
+npx vitest run        → 18 files, 293 tests, ~2.8 s wall clock
 npm run test:coverage → same + v8 instrumentation
 ```
 
@@ -98,7 +99,7 @@ an assertion instead of a timer.
 | --- | --- |
 | First-visit payload (gzip) | ≈104 kB |
 | App JS (gzip) | 93.8 kB |
-| Test suite wall clock | ~2.8 s / 284 tests |
+| Test suite wall clock | ~2.8 s / 293 tests |
 | Build wall clock | ~0.4 s |
 | Upstream calls per tab switch | 0 |
 | Upstream calls per app load | 1 (air bundle) + 1 (geocode, if the user searches) |
@@ -110,6 +111,9 @@ an assertion instead of a timer.
   readability win outweighs a constant-factor loss nobody can measure.
 - **Sample fallback bundled into the app** (a few kB) rather than fetched — it is what makes the
   app honest and useful offline, and it is labelled `source: sample` in a live region.
-- **`gemini-2.5-flash` / `qwen/qwen3.8-27b` by default, `reasoning_effort: low` on Groq** — chosen for
-  latency on a per-request interactive path; a slower model would be justified only if quality
-  demanded it, and the local planner already guarantees a good baseline answer.
+- **`gemini-2.5-flash` / `qwen/qwen3.8-27b` by default, `reasoning_effort: none` on Groq** —
+  measured on the live API: with reasoning enabled the thinking tokens swallowed the entire
+  1000-token output budget (`finish_reason=length`, zero content), so the plan fell back to the
+  local planner every time. Disabling reasoning spends the budget on the JSON we render, on a
+  per-request interactive path where latency matters more than deliberation. The local planner
+  still guarantees a good baseline answer.

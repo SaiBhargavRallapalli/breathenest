@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { AqiCategory, HourPoint, RiskLevel, TimeWindow } from '@/types';
+import { AQI_UPPER_BOUNDS } from '@/constants/aqiBands';
 import { assertInRange, assertPositive, mean, round1, round2 } from './guards';
 import { findBestWindows } from './windows';
 
@@ -122,7 +123,7 @@ export function ventilationAdvice(
   const pool = upcoming.length > 0 ? upcoming : hours;
   const indoor = Math.max(0, estimatedIndoorAqi);
 
-  const usable = pool.filter((entry) => entry.aqi < indoor && entry.aqi <= 100);
+  const usable = pool.filter((entry) => entry.aqi < indoor && entry.aqi <= AQI_UPPER_BOUNDS[1]);
   if (usable.length === 0) {
     const outdoorPeak = Math.round(Math.max(...pool.map((entry) => entry.aqi)));
     return {

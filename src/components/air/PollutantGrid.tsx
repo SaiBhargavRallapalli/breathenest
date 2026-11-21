@@ -6,6 +6,7 @@
 
 import type { PollutantReading } from '@/types';
 import { POLLUTANT_META } from '@/constants/pollutants';
+import { AQI_UPPER_BOUNDS } from '@/constants/aqiBands';
 import { Meter } from '@/components/ui/Meter';
 
 interface PollutantGridProps {
@@ -13,8 +14,9 @@ interface PollutantGridProps {
 }
 
 function toneFor(subIndex: number): 'mint' | 'warn' | 'alert' {
-  if (subIndex <= 50) return 'mint';
-  if (subIndex <= 150) return 'warn';
+  // Reads the shared EPA ladder instead of re-typing 50/150 here.
+  if (subIndex <= AQI_UPPER_BOUNDS[0]) return 'mint';
+  if (subIndex <= AQI_UPPER_BOUNDS[2]) return 'warn';
   return 'alert';
 }
 

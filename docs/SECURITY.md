@@ -69,11 +69,14 @@ three independent gates:
 
 1. **`parseJson`** — strips a code fence, `JSON.parse` in a try/catch; anything non-object ⇒ `null`.
 2. **`sanitizeBlocks`** — non-objects dropped; `title`/`time` required; every string **truncated**
-   (`title ≤ 90`, `detail`/`impact ≤ 600`, `summary ≤ 500`, `time` cut to `HH:MM`); `windowAqi`
-   clamped to `[0, 500]`; `risk` **recomputed** by `classifyRisk()` rather than trusted; block count
-   capped at `MAX_BLOCKS = 8`.
-3. **`reconcile`** — fewer than 3 valid blocks ⇒ the deterministic local plan is served instead.
-   `bestOutdoorWindow` is **recomputed from the sanitized blocks**, never taken from the model.
+   (`title ≤ 90`, `detail`/`impact ≤ 600`, `summary ≤ 500`, `time` cut to `HH:MM`); `windowAqi` is
+   **replaced by the forecast's value for that hour** (an invented AQI is not clamped, it is
+   *overwritten*), a block for an hour the forecast does not cover is **dropped**, `risk` is
+   **recomputed** by `classifyRisk()` from that value rather than trusted, and the block count is
+   capped at `MAX_BLOCKS = 8`. The model supplies no number that reaches the screen.
+3. **`reconcile`** — fewer than 3 groundable blocks ⇒ the deterministic local plan is served
+   instead. `bestOutdoorWindow` is **always the planner's verdict on the real 24-hour forecast**,
+   never the model's, so the panel's "no clean window" notice cannot contradict the summary.
 
 Because of gate 2, model text can never inject markup: React escapes everything it renders, and the
 prompt explicitly forbids markdown/HTML anyway (`"Keep every field plain text; no markdown, no HTML"`).
@@ -192,6 +195,7 @@ Plus an end-to-end check that the response carries `x-powered-by: null` and a st
 | `style-src 'unsafe-inline'` | Gauge/meter geometry is render-computed | `script-src` stays `'self'` — the XSS-relevant directive |
 | Rate limiter off under `NODE_ENV=test` | Shared counters would make suites flaky | Limiter behaviour unit-tested separately; never active in any non-test environment |
 | Two model vendors, two prompt-injection surfaces | A second backend is a second way in | Identical `sanitizeBlocks`/`reconcile` gate for both — the provider only changes *who writes*, never *what is accepted* |
+| Retrying a rate-limited API | A naive retry loop amplifies a 429 storm | Exactly one retry, capped at 2 s and only on 429 (`server/ai.ts`), concurrent identical requests share one call, output capped at 900 tokens (Groq's output-token-per-minute limit for this model is 1000), reasoning disabled so thinking cannot consume the budget; the local planner is always the answer if it still fails |
 | No request authentication | The app is a public read-only assistant with no user data server-side | Nothing to authenticate; the only server-side state is a TTL cache of public data |
 | Open-Meteo is a third party | Key-free public data is the project's accessibility bet | Timeouts, TTL cache, and a labelled bundled-sample fallback when upstream fails |
 

@@ -18,6 +18,7 @@ import type {
 } from '@/types';
 import {
   bestWindow,
+  CLEAN_WINDOW_MAX_PEAK_AQI,
   classifyRisk,
   concentrationForSubIndex,
   inhaledDose,
@@ -90,7 +91,11 @@ export function buildLocalPlan(context: PlanContext): DailyPlan {
   const { profile, currentAqi, hours } = context;
   const sensitive = sensitiveMembers(profile);
 
-  const cleanest = bestWindow(hours, { durationHours: 2, limit: 1, maxPeakAqi: 110 });
+  const cleanest = bestWindow(hours, {
+    durationHours: 2,
+    limit: 1,
+    maxPeakAqi: CLEAN_WINDOW_MAX_PEAK_AQI,
+  });
   const dirtiest = worstWindow(hours, 2);
   const morningAqi = aqiAt(hours, 7, currentAqi);
   const eveningAqi = aqiAt(hours, 20, currentAqi);

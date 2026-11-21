@@ -40,16 +40,19 @@ micrograms inhaled, percent reduction, kilograms of CO₂ or currency per year. 
 
 ## Two engines, one shape of answer
 
-BreatheNest has a **deterministic local planner** and a **GenAI generator** (Google Gemini or Groq
-Groq — whichever key you supply), and it is designed so the app is complete with either:
+BreatheNest has a **deterministic local planner** and a **GenAI generator** (Google Gemini or Groq — whichever key you supply), and it is designed so the app is complete with either:
 
 1. **Local planner** (`src/lib/planner.ts`) — a pure function of the household profile and the
    24-hour forecast. It searches for the cleanest slot, prices every block in inhaled PM2.5, and
    always returns a complete, chronologically ordered plan. It needs no network, no key, no config.
-2. **GenAI generator** (`server/ai.ts`) — rewrites the same plan with household-specific language
-   through Gemini *or* Groq (`GENAI_PROVIDER=auto` tries Gemini, then Groq). The output is
-   **re-validated field by field** before it is shown; anything malformed is discarded and the
-   local planner's answer is used instead.
+2. **GenAI generator** (`server/ai.ts`) — chooses the timing and rewrites the plan with
+   household-specific language through Gemini *or* Groq (`GENAI_PROVIDER=auto` tries Gemini, then
+   Groq). The output is **re-validated field by field** before it is shown: every `windowAqi` is
+   replaced by the forecast's value for that hour, `risk` is recomputed from it, the
+   outdoor-window verdict stays the planner's, and any block that cannot be grounded in the
+   forecast is discarded — malformed output falls back to the local planner's answer.
+
+   The model therefore writes *when* and *how*, never *what the data says*.
 
 The UI always states which engine produced the plan (`Local planner`, `GenAI plan (Gemini)` or
 `GenAI plan (Groq)`) and whether a fallback was taken. There is no path in which the user sees an empty or broken plan.
@@ -119,8 +122,8 @@ npm run verify   # eslint --max-warnings 0 → tsc --noEmit → vitest run → v
 | --- | --- |
 | ESLint 10 (flat, typescript-eslint) | 0 errors, 0 warnings |
 | TypeScript 5.9 (`strict`, `noUncheckedIndexedAccess`) | 0 errors |
-| Tests (Vitest 4, jsdom + real HTTP) | **284 / 284 passing** |
-| Coverage (`src/lib/**`, `src/services/**`) | 94.2% stmts · 87.9% branch · 96.9% funcs · 95.8% lines |
+| Tests (Vitest 4, jsdom + real HTTP) | **293 / 293 passing** |
+| Coverage (`src/lib/**`, `src/services/**`) | 94.0% stmts · 86.9% branch · 96.9% funcs · 95.7% lines |
 | Build | 308 kB app (94 kB gzip) + 12 kB vendor (4 kB gzip) |
 
 Pillar-by-pillar evidence lives in [`docs/`](docs/):

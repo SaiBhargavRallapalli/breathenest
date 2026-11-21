@@ -12,6 +12,8 @@ import {
   interpolateSubIndex,
   subIndex,
 } from '@/lib/compute/aqi';
+import { classifyRisk } from '@/lib/compute/windows';
+import { AQI_BANDS, AQI_UPPER_BOUNDS } from '@/constants/aqiBands';
 
 describe('interpolateSubIndex', () => {
   it('maps band endpoints exactly', () => {
@@ -163,5 +165,28 @@ describe('concentrationForSubIndex', () => {
 
   it('rejects negative targets', () => {
     expect(() => concentrationForSubIndex('pm25', -5)).toThrow(RangeError);
+  });
+});
+
+describe('the shared band ladder', () => {
+  it('classifies every band edge from AQI_BANDS, not from a second copy', () => {
+    for (const band of AQI_BANDS) {
+      if (!Number.isFinite(band.max)) continue;
+      expect(classifyAqi(band.max)).toBe(band.category);
+      expect(classifyAqi(band.max + 1)).not.toBe(band.category);
+    }
+  });
+
+  it('derives the activity-risk ladder from the same bounds', () => {
+    expect(classifyRisk(AQI_UPPER_BOUNDS[0])).toBe('ideal');
+    expect(classifyRisk(AQI_UPPER_BOUNDS[1])).toBe('acceptable');
+    expect(classifyRisk(AQI_UPPER_BOUNDS[2])).toBe('poor');
+    expect(classifyRisk(AQI_UPPER_BOUNDS[2] + 1)).toBe('avoid');
+  });
+
+  it('keeps the bounds strictly ascending', () => {
+    const finite = AQI_UPPER_BOUNDS.filter((bound) => Number.isFinite(bound));
+    expect([...finite].sort((a, b) => a - b)).toEqual([...finite]);
+    expect(new Set(finite).size).toBe(finite.length);
   });
 });

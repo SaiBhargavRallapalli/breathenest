@@ -86,7 +86,7 @@ npm run dev                 # no key needed
 3. **Switch location to a dirty city** → watch the guidance, windows and stagnation change.
 4. **Add a sensitive member to the household** → the AQI tab grows a household-specific warning.
 5. **Select three swaps** → the Impact ledger totals them and shows equivalents.
-6. **Read `docs/TESTING.md`** → run `npx vitest run` and see 284 green in under three seconds.
+6. **Read `docs/TESTING.md`** → run `npx vitest run` and see 293 green in under three seconds.
 
 Each step verifies a different requirement line from §2 without reading any code.
 
@@ -106,7 +106,7 @@ Each step verifies a different requirement line from §2 without reading any cod
 ## 7. Distinctness
 
 BreatheNest is an original implementation: its own name, architecture (single context store +
-pure `lib/compute` + Express 5 gateway), test organisation (18 files / 284 tests), documentation
+pure `lib/compute` + Express 5 gateway), test organisation (18 files / 293 tests), documentation
 structure (`docs/` pillar reports with evidence tables), and copy. Inspiration was taken from the
 problem domain — air-quality assistants are a well-known space — not from any existing repository's
 code or prose.

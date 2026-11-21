@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Express } from 'express';
-import { createApp } from '@/../server/app';
+import { createApp, engineLabel } from '@/../server/app';
 import { loadConfig, type ServerConfig } from '@/../server/config';
 import { makeProfile } from '../fixtures';
 
@@ -176,6 +176,21 @@ describe('GET /api/health', () => {
     await new Promise<void>((resolve) => listener.close(() => resolve()));
 
     expect(body.model).toBe('groq:qwen/qwen3.8-27b');
+  });
+
+  it('never reports "no API key set" while a Groq key is live', () => {
+    // The boot banner used to read `geminiApiKey` alone, so a keyed Groq
+    // server announced itself as the local planner.
+    expect(engineLabel(loadConfig({ NODE_ENV: 'test' }))).toBe('local planner (no API key set)');
+    expect(engineLabel(loadConfig({ NODE_ENV: 'test', GROQ_API_KEY: 'k' }))).toBe(
+      'Groq (qwen/qwen3.8-27b) + local fallback',
+    );
+    expect(engineLabel(loadConfig({ NODE_ENV: 'test', GEMINI_API_KEY: 'k' }))).toBe(
+      'Gemini (gemini-2.5-flash) + local fallback',
+    );
+    expect(
+      engineLabel(loadConfig({ NODE_ENV: 'test', GENAI_PROVIDER: 'local', GROQ_API_KEY: 'k' })),
+    ).toBe('local planner (no API key set)');
   });
 
   it('sends security headers and hides the framework', async () => {

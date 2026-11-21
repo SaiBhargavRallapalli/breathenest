@@ -1,7 +1,7 @@
 # Testing
 
 **Project:** BreatheNest — GenAI Urban Air Quality Assistant
-**Gate:** `npx vitest run` → **18 files, 284 tests, 0 failures** · coverage **94.17% stmts / 87.86% branch / 96.87% funcs / 95.79% lines** (thresholds 85/80/85/85, enforced in `vite.config.ts`)
+**Gate:** `npx vitest run` → **18 files, 293 tests, 0 failures** · coverage **94.02% stmts / 86.92% branch / 96.93% funcs / 95.73% lines** (thresholds 85/80/85/85, enforced in `vite.config.ts`)
 
 ---
 
@@ -27,8 +27,8 @@ categories of real failure are covered here:
 src/test/
 ├── fixtures.ts            makeBundle/makeAirResponse/makeProfile, stubFetch, seedProfile
 ├── setup.ts               jest-dom matchers, cleanup, unstubAllGlobals, scrollTo stub
-├── compute/               7 files · 111 tests — pure domain logic
-├── server/                5 files ·  85 tests — schemas, middleware, cache, providers, HTTP
+├── compute/               7 files · 115 tests — pure domain logic
+├── server/                5 files ·  91 tests — schemas, middleware, cache, providers, HTTP
 ├── render/                3 files ·  53 tests — jsdom component + journey tests
 ├── api.test.ts                   11 tests — typed fetch client
 ├── storage.test.ts               13 tests — defensive persistence
@@ -40,7 +40,7 @@ src/test/
 | File | Tests | What it pins down |
 | --- | --- | --- |
 | `compute/guards.test.ts` | 15 | finiteness, ranges, rounding, aggregation invariants |
-| `compute/aqi.test.ts` | 22 | EPA breakpoints at their published values (12→50, 12.1→51, 35.4→100), band edges, worst-pollutant rule, reverse lookup |
+| `compute/aqi.test.ts` | 25 | EPA breakpoints at their published values (12→50, 12.1→51, 35.4→100), band edges, worst-pollutant rule, reverse lookup |
 | `compute/windows.test.ts` | 15 | cleanest/dirtiest slot search, end-exclusive slots, peak-based risk, day statistics |
 | `compute/exposure.test.ts` | 14 | inhaled-dose model, protection factors, indoor penetration ratios |
 | `compute/indoor.test.ts` | 17 | room volume, CADR sizing, single-compartment clearance decay, vent scheduler |
@@ -50,10 +50,10 @@ src/test/
 | `storage.test.ts` | 13 | corrupted JSON, missing keys, denied/quota'd `localStorage`, whitelisted enums |
 | `api.test.ts` | 11 | uniform `ApiError`, timeouts, query construction |
 | `server/cache.test.ts` | 12 | TTL expiry, LRU eviction, hash-key stability |
-| `server/ai.test.ts` | 18 | provider selection (Gemini/Groq/local), Groq request shape, all fallback routes, config parsing |
+| `server/ai.test.ts` | 23 | provider selection (Gemini/Groq/local), Groq request shape, forecast grounding of every model number, all fallback routes, config parsing |
 | `server/schemas.test.ts` | 24 | every malformed request rejected with a field-level `details` |
 | `server/middleware.test.ts` | 13 | security headers, CORS allowlist, rate limiter, non-leaky 500s |
-| `server/app.test.ts` | 18 | end-to-end HTTP against the real Express app, upstream stubbed |
+| `server/app.test.ts` | 19 | end-to-end HTTP against the real Express app, upstream stubbed |
 | `render/shell.test.tsx` | 18 | landmarks, tablist keyboard support, i18n + RTL, location controls, degraded-data notice |
 | `render/air.test.tsx` | 16 | gauge text twin, household guidance, stagnation reasoning, forecast SR list, pollutants |
 | `render/flows.test.tsx` | 19 | routine generation (Gemini, Groq **and** fallback), swaps→impact journey, pledges, indoor calculator |
@@ -105,7 +105,7 @@ Coverage is scoped to the code where a wrong answer matters — `src/lib/**` and
 thresholds: { statements: 85, branches: 80, functions: 85, lines: 85 }
 ```
 
-Current: **94.17 / 87.86 / 96.87 / 95.79**. The gap is honest and mostly in `format.ts`
+Current: **94.02 / 86.92 / 96.93 / 95.73**. The gap is honest and mostly in `format.ts`
 (currency/date formatting branches) and a handful of defensive `default` arms. UI components are
 covered by journey tests but are outside the coverage scope — their value is in behaviour, not
 line count.

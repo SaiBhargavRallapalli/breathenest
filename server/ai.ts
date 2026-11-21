@@ -9,9 +9,9 @@
 // ============================================================
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { DailyPlan, RoutineBlock } from '../src/types';
+import type { DailyPlan, HourPoint, RoutineBlock, TimeWindow } from '../src/types';
 import { buildLocalPlan } from '../src/lib/planner';
-import { classifyRisk, findBestWindows } from '../src/lib/compute/index';
+import { classifyRisk, CLEAN_WINDOW_MAX_PEAK_AQI } from '../src/lib/compute/index';
 import type { ServerConfig } from './config';
 import { hashPayload, type TtlCache } from './cache';
 import type { AdvisoryRequest, PlanRequest } from './schemas';
@@ -24,6 +24,25 @@ export type GenAiSource = GenAiEngine | 'local';
 
 /** Latency budget for one model call — the interactive path must not hang. */
 const MODEL_TIMEOUT_MS = 30_000;
+
+/**
+ * Rate-limit discipline. Groq meters by *tokens per minute* (8k on the
+ * tier we use), so one oversized plan, or a double-mounted effect asking
+ * twice, can starve the window for every later request. We cap the output,
+ * share concurrent identical calls, and allow exactly one quick retry.
+ */
+const RATE_LIMIT_RETRIES = 1;
+const RETRY_DELAY_MS = 1_000;
+const MAX_RETRY_DELAY_MS = 2_000;
+
+/** How long to wait out a 429, honouring `Retry-After` when present. */
+function retryDelayMs(response: Response, isTest: boolean): number {
+  if (isTest) return 0;
+  const header = response.headers.get('retry-after');
+  const seconds = header === null ? Number.NaN : Number.parseFloat(header);
+  if (!Number.isFinite(seconds)) return RETRY_DELAY_MS;
+  return Math.min(Math.max(seconds * 1000, 0), MAX_RETRY_DELAY_MS);
+}
 
 /**
  * Picks the backend to call. `auto` prefers Gemini (the original
@@ -75,7 +94,8 @@ async function completeGroq(
   config: ServerConfig,
   options: CompletionOptions,
 ): Promise<string> {
-  const response = await fetch(`${config.groqBaseUrl}/chat/completions`, {
+  const url = `${config.groqBaseUrl}/chat/completions`;
+  const buildInit = (): RequestInit => ({
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -96,11 +116,22 @@ async function completeGroq(
       ],
       temperature: options.temperature,
       max_completion_tokens: options.maxTokens,
-      // Interactive path: latency matters more than reasoning depth.
-      reasoning_effort: 'low',
+      // Reasoning is disabled deliberately. Two measured constraints on
+      // qwen3.8-27b: the output-token-per-minute cap is 1000, and with
+      // reasoning enabled the thinking tokens consume the whole budget
+      // (finish_reason=length, zero content chars). `none` spends the
+      // budget on the JSON we actually render.
+      reasoning_effort: 'none',
     }),
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
+
+  let response = await fetch(url, buildInit());
+  for (let attempt = 0; response.status === 429 && attempt < RATE_LIMIT_RETRIES; attempt += 1) {
+    const waitMs = retryDelayMs(response, config.isTest);
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    response = await fetch(url, buildInit());
+  }
 
   if (!response.ok) {
     throw new Error(`Groq request failed with HTTP ${response.status}`);
@@ -140,9 +171,16 @@ function parseJson(text: unknown): Record<string, unknown> | null {
   }
 }
 
-/** Keeps only the blocks that carry the fields we render. */
-function sanitizeBlocks(raw: unknown): RoutineBlock[] {
+/**
+ * Keeps only the blocks that can be grounded in the real forecast.
+ * The model chooses the moment and the words; the AQI on screen is the
+ * forecast's value for that hour, and the risk label is recomputed from
+ * it — so a block that cannot be matched to the forecast is dropped
+ * rather than rendered with an invented number.
+ */
+function sanitizeBlocks(raw: unknown, hours: readonly HourPoint[]): RoutineBlock[] {
   if (!Array.isArray(raw)) return [];
+  const byHour = new Map(hours.map((point) => [point.hour, point.aqi]));
   const blocks: RoutineBlock[] = [];
 
   for (const entry of raw) {
@@ -151,45 +189,55 @@ function sanitizeBlocks(raw: unknown): RoutineBlock[] {
     const candidate = entry as Partial<RoutineBlock>;
     if (typeof candidate.title !== 'string' || typeof candidate.time !== 'string') continue;
 
-    const aqi = typeof candidate.windowAqi === 'number' && Number.isFinite(candidate.windowAqi)
-      ? Math.min(500, Math.max(0, candidate.windowAqi))
-      : 0;
+    const hour = Number.parseInt(candidate.time.slice(0, 2), 10);
+    const aqi = Number.isFinite(hour) ? byHour.get(hour) : undefined;
+    if (aqi === undefined) continue;
 
     blocks.push({
       time: candidate.time.slice(0, 5),
       title: candidate.title.slice(0, 90),
       detail: typeof candidate.detail === 'string' ? candidate.detail.slice(0, 600) : '',
       windowAqi: aqi,
-      risk: typeof candidate.risk === 'string' ? classifyRisk(aqi) : classifyRisk(aqi),
+      risk: classifyRisk(aqi),
       impact: typeof candidate.impact === 'string' ? candidate.impact.slice(0, 600) : '',
     });
   }
   return blocks;
 }
 
-/** Merges a model response with the local plan, keeping it safe to render. */
+/**
+ * Merges a model response with the local plan, keeping it safe to render.
+ * The outdoor-window verdict is never taken from the model: it stays the
+ * planner's, computed from the same 24-hour forecast, so the panel's
+ * "no clean window" notice can never disagree with the summary above it.
+ */
 function reconcile(
   raw: Record<string, unknown> | null,
   fallback: DailyPlan,
   engine: GenAiEngine,
+  hours: readonly HourPoint[],
 ): DailyPlan {
-  const blocks = sanitizeBlocks(raw?.blocks);
+  const blocks = sanitizeBlocks(raw?.blocks, hours);
   if (blocks.length < 3) return fallback;
 
   const summary = typeof raw?.summary === 'string' && raw.summary.trim().length > 0
     ? raw.summary.slice(0, 500)
     : fallback.summary;
 
-  const hours = blocks.map((block) => ({ hour: Number.parseInt(block.time.slice(0, 2), 10) || 0, aqi: block.windowAqi }));
-  const window = findBestWindows(hours, { limit: 1, maxPeakAqi: 150 })[0] ?? fallback.bestOutdoorWindow;
-
-  return { ...fallback, blocks, summary, bestOutdoorWindow: window, generator: engine };
+  return { ...fallback, blocks, summary, bestOutdoorWindow: fallback.bestOutdoorWindow, generator: engine };
 }
 
 /** Builds the prompt, keeping user-supplied text clearly delimited. */
-function planPrompt(request: PlanRequest): string {
+function planPrompt(request: PlanRequest, verdict: TimeWindow | null): string {
   const { profile, currentAqi, hours } = request;
   const curve = hours.map((entry) => `${entry.hour}h=${entry.aqi}`).join(' ');
+  const hh = (hour: number): string => `${String(hour).padStart(2, '0')}:00`;
+  // The window verdict is the planner's, computed from the same forecast
+  // that the panel renders. Handing it over as data stops the model from
+  // inventing its own threshold and contradicting the verdict on screen.
+  const verdictLine = verdict
+    ? `There IS a clean outdoor window: ${hh(verdict.startHour)}-${hh(verdict.endHour)}, average AQI ${verdict.averageAqi}, peak ${verdict.peakAqi}. State it in the summary and put outdoor activity in that slot.`
+    : `There is NO clean outdoor window today: no 2-hour slot peaks at or below AQI ${CLEAN_WINDOW_MAX_PEAK_AQI}. State exactly that in the summary, call the lowest slot "the cleanest stretch of a still-unhealthy day", and never describe any hour as safe, clean or good.`;
   const members = profile.members
     .map((member) => `${member.label} (age ${member.age}: ${member.vulnerabilities.join(', ') || 'none'})`)
     .join('; ');
@@ -214,11 +262,20 @@ Cooking fuel: ${profile.cookingFuel}
 HOURLY AQI FORECAST (0-23h)
 ${curve}
 
+OUTDOOR WINDOW VERDICT (fixed — repeat it, never recompute it)
+${verdictLine}
+
 REQUIREMENTS
 - Return 5 to 7 blocks that together cover the day in chronological order.
-- Use the forecast: identify the cleanest outdoor window and put outdoor activity there.
+- Put outdoor activity in the window named above; if there is none, keep every block indoors.
 - Avoid the morning inversion hours (05:00-09:00) when the curve shows a peak.
 - Each block needs "time" as HH:MM, "title", "detail", "windowAqi" (number), "risk" and "impact".
+- "windowAqi" must be copied exactly from the HOURLY AQI FORECAST for that hour. You choose the
+  timing and the wording; every AQI number is the forecast's, and yours will be replaced if you
+  change it. Never invent, round or improve a value.
+- "risk" follows the value you copied: <=50 ideal, <=100 acceptable, <=150 poor, above that avoid.
+- Your summary must agree with the OUTDOOR WINDOW VERDICT above — never call the day windowless
+  when a window is named, and never promise a window when there is none.
 - "impact" must quantify the direct effect in micrograms of PM2.5 inhaled, or a percentage, using the numbers above. Never be vague.
 - If a member has a vulnerability, say explicitly what they should skip.
 - Keep every field plain text; no markdown, no HTML.
@@ -251,6 +308,13 @@ export function localPlan(request: PlanRequest): DailyPlan {
   });
 }
 
+/**
+ * Concurrent identical plan requests (a double-mounted effect, two tabs,
+ * a curious user mashing the button) share one upstream call. Groq bills
+ * per token, so paying twice for one answer is pure waste.
+ */
+const inflightPlan = new Map<string, Promise<{ plan: DailyPlan; source: GenAiSource }>>();
+
 /** Generates a plan, preferring a configured engine and always able to fall back. */
 export async function generatePlan(
   request: PlanRequest,
@@ -265,18 +329,33 @@ export async function generatePlan(
   const cached = cache.get(key);
   if (cached) return { plan: cached, source: cached.generator === 'local' ? 'local' : cached.generator };
 
+  const pending = inflightPlan.get(key);
+  if (pending) return pending;
+
+  const task = (async (): Promise<{ plan: DailyPlan; source: GenAiSource }> => {
+    try {
+      const text = await complete(engine, planPrompt(request, fallback.bestOutdoorWindow), config, {
+        temperature: 0.4,
+        // Groq enforces 1000 output tokens/min for this model, so the plan
+        // budget is 900 — enough for 5-7 grounded blocks (measured ~730
+        // completion tokens) while leaving headroom in the window.
+        maxTokens: 900,
+        json: engine === 'gemini',
+      });
+      const plan = reconcile(parseJson(text), fallback, engine, request.hours);
+      cache.set(key, plan, config.upstreamTtlMs);
+      return { plan, source: plan.generator };
+    } catch (error) {
+      console.warn(`[breathenest] ${engine} plan failed, using local planner: ${String(error)}`);
+      return { plan: fallback, source: 'local' };
+    }
+  })();
+
+  inflightPlan.set(key, task);
   try {
-    const text = await complete(engine, planPrompt(request), config, {
-      temperature: 0.4,
-      maxTokens: 4096,
-      json: engine === 'gemini',
-    });
-    const plan = reconcile(parseJson(text), fallback, engine);
-    cache.set(key, plan, config.upstreamTtlMs);
-    return { plan, source: plan.generator };
-  } catch (error) {
-    console.warn(`[breathenest] ${engine} plan failed, using local planner: ${String(error)}`);
-    return { plan: fallback, source: 'local' };
+    return await task;
+  } finally {
+    inflightPlan.delete(key);
   }
 }
 

@@ -30,6 +30,18 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 
+/**
+ * Boot-banner description of what will actually answer a plan request.
+ * Reads the same `resolveEngine` as `/api/health` and `generatePlan`, so
+ * the banner cannot claim "no API key set" while a Groq key is live.
+ */
+export function engineLabel(config: ServerConfig): string {
+  const engine = resolveEngine(config);
+  if (engine === 'gemini') return `Gemini (${config.geminiModel}) + local fallback`;
+  if (engine === 'groq') return `Groq (${config.groqModel}) + local fallback`;
+  return 'local planner (no API key set)';
+}
+
 /** Everything the app needs, so tests can inject their own config. */
 export interface AppHandles {
   readonly airCache: TtlCache<AirPayload>;

@@ -18,8 +18,8 @@
     "testRunner": "vitest 4.1.12",
     "testEnvironment": "jsdom 29 (components) + real HTTP loopback (gateway)",
     "totalTestFiles": 18,
-    "totalTests": 284,
-    "passedTests": 284,
+    "totalTests": 293,
+    "passedTests": 293,
     "failedTests": 0,
     "passRatePercent": 100,
     "suites": [
@@ -30,8 +30,8 @@
       },
       {
         "name": "compute/aqi.test.ts",
-        "tests": 22,
-        "purpose": "US EPA breakpoint interpolation, band edges, worst-pollutant rule, reverse lookup"
+        "tests": 25,
+        "purpose": "EPA breakpoints at their published values, band edges, worst-pollutant rule, reverse lookup, and the shared-band-ladder invariant"
       },
       {
         "name": "compute/windows.test.ts",
@@ -90,13 +90,13 @@
       },
       {
         "name": "server/app.test.ts",
-        "tests": 18,
-        "purpose": "End-to-end HTTP against the Express app with a stubbed upstream provider, incl. health engine reporting"
+        "tests": 19,
+        "purpose": "End-to-end HTTP against the Express app with a stubbed upstream provider, incl. health engine reporting and boot-banner labelling"
       },
       {
         "name": "server/ai.test.ts",
-        "tests": 18,
-        "purpose": "Provider selection (Gemini/Groq/local), Groq request shape, every fallback route, GENAI_PROVIDER parsing"
+        "tests": 23,
+        "purpose": "Provider selection (Gemini/Groq/local), Groq request shape + rate-limit discipline, forecast grounding of every model number, planner window verdict passed to the prompt, all fallback routes, config parsing"
       },
       {
         "name": "render/shell.test.tsx",

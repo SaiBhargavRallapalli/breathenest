@@ -1,7 +1,7 @@
 # Code Quality
 
 **Project:** BreatheNest — GenAI Urban Air Quality Assistant
-**Gate:** `npm run verify` → ESLint (0/0) → `tsc --noEmit` (0 errors) → 284 tests → production build
+**Gate:** `npm run verify` → ESLint (0/0) → `tsc --noEmit` (0 errors) → 293 tests → production build
 
 ---
 
@@ -24,6 +24,9 @@ src/
 │   └── storage.ts  defensive localStorage (corruption, quota, denial)
 ├── context/      one store — AppContext
 ├── components/   UI only; reads the store, never computes domain answers
+│   └── home/     HomeAirPanel (20 lines, composition only) →
+│                 RoomCalculator (dimensions → CADR/clearance) ·
+│                 HackCatalogue (zone filter + ranked list)
 └── constants/    data tables (pollutants, hacks, swaps, pledges, i18n)
 
 server/
@@ -38,10 +41,14 @@ server/
 Two rules hold across the whole codebase:
 
 1. **`src/lib/**` is pure.** No file under `lib/` imports React, `fetch`, `localStorage` or
-   `Date.now()` for decisions (timestamps are passed in). This is why 84% of statements in `lib/`
-   are covered by tests that run in milliseconds with no DOM and no network.
-2. **Components never decide.** A panel renders what `lib/` and `context/` tell it. When the air
-   reading changes, the panels re-render; they do not re-derive AQI bands, doses or windows.
+   `Date.now()` for decisions (timestamps are passed in). Measured on the current tree: **95% of
+   lines and 96% of functions in `lib/` are covered**, by tests that run in milliseconds with no
+   DOM and no network (branch coverage in `lib/` is 87%, the same as the suite overall).
+2. **Components never decide.** A panel renders what `lib/` and `context/` tell it. Components may
+   *call* a pure function, but they never contain a domain formula or a bare threshold: colours
+   read `AQI_BANDS`, the forecast strip's callout passes `CLEAN_WINDOW_MAX_PEAK_AQI`, and
+   `PollutantGrid` reads `AQI_UPPER_BOUNDS` instead of re-typing `50`/`150`. When the air reading
+   changes, the panels re-render; they do not re-derive a second opinion.
 
 ## 3. TypeScript as an enforcement mechanism
 
@@ -91,6 +98,30 @@ this app is written:
   tables. `SWAPS` entries carry an `applicable(profile)` predicate so applicability stays next to
   the data it describes.
 
+## 5a. One ladder for every AQI threshold
+
+The EPA breakpoints `50 / 100 / 150 / 200 / 300` used to be written in four places: the band
+table, `classifyAqi`, `classifyRisk` and inline in `PollutantGrid`. They are now written **once**,
+in `src/constants/aqiBands.ts`:
+
+| Consumer | What it reads |
+| --- | --- |
+| `AQI_BANDS[].max` | the ladder itself (labels, colours, guidance) |
+| `classifyAqi()` | `AQI_BANDS.find(aqi <= band.max)` — classified by the table that renders it |
+| `classifyRisk()` | the first three bounds, paired with `ideal / acceptable / poor` |
+| `windows.ts` `DEFAULTS.maxPeakAqi` | the `poor` bound |
+| `PollutantGrid.toneFor()` | `AQI_UPPER_BOUNDS[0]` / `[2]` |
+| `indoor.ts` ventilation filter | `AQI_UPPER_BOUNDS[1]` |
+| planner + GenAI prompt + forecast strip | `CLEAN_WINDOW_MAX_PEAK_AQI` (110) — one constant, three consumers |
+
+That last row is not cosmetic: the forecast strip used to highlight a "best window" with a
+peak limit of **150** while the planner and the plan prompt used **110**, so on a borderline day
+the *Air now* strip could promise a window the *My day* panel then refused. Both now read the same
+export, and `server/ai.ts` interpolates it into the prompt rather than retyping it — a change to
+the threshold updates the planner, the strip and what the model is told, in one edit.
+`src/test/compute/aqi.test.ts` pins the invariant (every band edge classifies as its own category,
+the risk ladder follows the same bounds, the bounds ascend).
+
 ## 6. Error handling philosophy
 
 | Layer | Strategy |
@@ -99,7 +130,7 @@ this app is written:
 | `services/api.ts` | Every failure — HTTP, transport, empty body — collapses to one `ApiError` with a `status` (0 for transport) and a human message. UI code has exactly one error path. |
 | `services/storage.ts` | `loadJson` never throws: malformed JSON, a missing key, a denied `localStorage` (private mode) or a quota error all return the caller's fallback. |
 | `server/middleware.ts` `safeErrorHandler` | 4xx messages are echoed (the client can correct input); 5xx messages are replaced with `Internal Server Error` and the real error is logged server-side only. |
-| `server/ai.ts` | Model output (Gemini or Groq) is re-validated; on any failure the deterministic local plan is returned. There is no user-visible failure mode. |
+| `server/ai.ts` | Model output (Gemini or Groq) is re-validated: AQIs are overwritten with the forecast's values, risk labels recomputed, the window verdict kept as the planner's; on any failure the deterministic local plan is returned. There is no user-visible failure mode. |
 
 ## 7. Honesty in the numbers
 

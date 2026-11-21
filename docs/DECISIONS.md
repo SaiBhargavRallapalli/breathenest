@@ -33,9 +33,12 @@ confidently invent numbers.
 2. Compute everything locally, use the model only to *rephrase* (slower to build, correct).
 3. Compute and let the model free-write alongside (two sources of truth, contradictory UI).
 
-**Decision.** Option 2, structurally: `src/lib/planner.ts` is the source of truth; the model rewrites
-the same plan's prose; its output is re-validated field by field and reconciled against the local
-plan (`server/ai.ts`). The badge tells the user which engine answered.
+**Decision.** Option 2, structurally: `src/lib/planner.ts` is the source of truth; the model picks
+the *timing* and rewrites the *prose*; its output is re-validated field by field and reconciled
+against the local plan (`server/ai.ts`). Concretely, every `windowAqi` shown is the forecast's
+value for that hour, `risk` is recomputed from it, and `bestOutdoorWindow` is the planner's verdict
+— the model can move an activity or reword a block, but cannot put a number on screen that the data
+does not support. The badge tells the user which engine answered.
 
 **Consequence.** The app has no key-dependent failure mode, the test suite runs offline, and a
 model regression can degrade *wording* but never *numbers*. Cost: some GenAI output is discarded
@@ -170,3 +173,30 @@ transport differs (official SDK vs one `fetch` to the OpenAI-compatible endpoint
 **Consequence.** The security story is unchanged — the provider changes *who writes*, never *what
 is accepted* — and the app still runs with zero keys. Cost: two things to keep in sync (timeout
 discipline, prompt text), which is why they share `complete()` and the same prompt builders.
+
+## D-012 · Bounded spend on a metered API
+
+**Situation.** Groq meters tokens: 8,000 input tokens/min, but only **1,000 output tokens/min**
+for `qwen/qwen3.8-27b`. Testing against the live API surfaced two separate failures: a
+double-mounted effect sent the same plan request twice in one window and earned a real HTTP 429,
+and asking for 2048 output tokens was rejected outright (`Request too large … OTPM: Limit 1000,
+Requested 2048`). A third, subtler failure: with `reasoning_effort: low` the model spent the whole
+budget thinking and returned `finish_reason=length` with **zero content characters**, so every
+plan silently fell back to the local planner.
+
+**Options.** (a) do nothing and accept occasional fallbacks · (b) add an unbounded retry loop ·
+(c) cut spend at the source — budget it under the measured cap, stop paying for reasoning, dedupe
+concurrent calls — and retry exactly once.
+
+**Decision.** Option 3: a **900-token** output cap (measured at ~730 completion tokens for a real
+plan, under the 1000 OTPM limit), `reasoning_effort: none` so thinking cannot consume the budget,
+**single-flight** dedupe so concurrent identical requests share one upstream call
+(`inflightPlan`), and exactly one retry on 429 honouring `Retry-After` up to 2 seconds. Latency
+stays bounded: the worst case adds one short wait, and the deterministic plan is served the
+moment anything still fails.
+
+**Consequence.** Duplicate spend is structurally impossible, a transient blip no longer costs the
+user their plan, and the GenAI path actually answers instead of always degrading to the local
+planner. Cost: a little module-level state (the in-flight map), one more branch to test — both
+covered in `server/ai.test.ts` — and giving up chain-of-thought, which bought nothing here because
+the numbers never come from the model anyway.

@@ -7,6 +7,7 @@
 // ============================================================
 
 import { BREAKPOINTS, POLLUTANT_ORDER, type Breakpoint } from '@/constants/pollutants';
+import { AQI_BANDS } from '@/constants/aqiBands';
 import type { AqiCategory, PollutantKey } from '@/types';
 import { assertFinite, assertNonNegative, roundTo } from './guards';
 
@@ -71,16 +72,16 @@ export function subIndex(key: PollutantKey, concentration: number): number {
   return top.aqiHigh;
 }
 
-/** Maps an AQI value onto one of the six EPA health bands. */
+/**
+ * AQI → health category (EPA).
+ * Resolves against `AQI_BANDS` — the same table that renders the label
+ * and colour — so a value can never be classified one way on screen and
+ * another way in a calculation.
+ */
 export function classifyAqi(aqi: number): AqiCategory {
   assertFinite(aqi, 'aqi');
   assertNonNegative(aqi, 'aqi');
-  if (aqi <= 50) return 'good';
-  if (aqi <= 100) return 'moderate';
-  if (aqi <= 150) return 'unhealthy_sensitive';
-  if (aqi <= 200) return 'unhealthy';
-  if (aqi <= 300) return 'very_unhealthy';
-  return 'hazardous';
+  return AQI_BANDS.find((band) => aqi <= band.max)?.category ?? 'hazardous';
 }
 
 /**

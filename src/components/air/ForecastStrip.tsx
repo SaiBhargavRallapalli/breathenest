@@ -6,7 +6,7 @@
 
 import type { HourlyForecast } from '@/types';
 import { AQI_BANDS, categoryLabel } from '@/constants/aqiBands';
-import { findBestWindows, worstWindow } from '@/lib/compute';
+import { CLEAN_WINDOW_MAX_PEAK_AQI, findBestWindows, worstWindow } from '@/lib/compute';
 import { formatHour } from '@/lib/format';
 
 interface ForecastStripProps {
@@ -22,7 +22,11 @@ export function ForecastStrip({ hours }: ForecastStripProps) {
     return <p className="text-sm text-fog">No forecast available.</p>;
   }
 
-  const best = findBestWindows(hours, { durationHours: 2, limit: 1, maxPeakAqi: 150 })[0] ?? null;
+  // Same clean-window verdict as the planner and the GenAI prompt: one
+  // threshold, so this callout can never contradict the "My day" panel.
+  const best =
+    findBestWindows(hours, { durationHours: 2, limit: 1, maxPeakAqi: CLEAN_WINDOW_MAX_PEAK_AQI })[0] ??
+    null;
   const worst = worstWindow(hours, 2);
   const peak = Math.max(...hours.map((entry) => entry.aqi), 1);
 
